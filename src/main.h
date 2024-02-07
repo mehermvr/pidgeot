@@ -18,6 +18,7 @@
  * go to solve lin system
  */
 
+#include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <algorithm>
