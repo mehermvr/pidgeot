@@ -1,4 +1,4 @@
-project(testsrc)
+project(2d_rotation_sync)
 
 find_package(Eigen3 REQUIRED NO_MODULE)
 
