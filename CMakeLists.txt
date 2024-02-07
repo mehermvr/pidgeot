@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 3.20...3.25)
 
 project(testground)
+
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# custom vars for later
-set(BIN_DIR
-    "${CMAKE_CURRENT_BINARY_DIR}/bin"
-    CACHE STRING "Bin Directory.")
+# function includes
+include(cmake/setTargetOutputDirectories.cmake)
 
-add_subdirectory(src/happly)
+add_subdirectory(src)
