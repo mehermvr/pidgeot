@@ -9,7 +9,11 @@ auto rotsync::calculate_error_and_jacobian(const State& state, const Measurement
                            const float relative_rot) {
         auto prediction = state_1.toRotationMatrix().transpose() * state_2.toRotationMatrix();
         auto measurement_so2 = exponential_map(relative_rot).toRotationMatrix();
-        std::cout << "state_1\n" << state_1.toRotationMatrix() << "\n";
+        std::cout << "state_1\n" << state_1.toRotationMatrix().transpose() << "\n";
+        std::cout << "state_2\n" << state_2.toRotationMatrix() << "\n";
+        /* std::cout << "prediction\n" */
+        /*           << state_1.toRotationMatrix().transpose() * state_2.toRotationMatrix() << "\n";
+         */
         std::cout << "prediction\n" << prediction << "\n";
         std::cout << "measurement_so2\n" << measurement_so2 << "\n";
         std::cout << "res\n"
