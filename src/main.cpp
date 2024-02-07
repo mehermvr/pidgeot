@@ -9,6 +9,11 @@ auto rotsync::calculate_error_and_jacobian(const State& state, const Measurement
                            const float relative_rot) {
         auto prediction = state_1.toRotationMatrix().transpose() * state_2.toRotationMatrix();
         auto measurement_so2 = exponential_map(relative_rot).toRotationMatrix();
+        std::cout << "state_1\n" << state_1.toRotationMatrix() << "\n";
+        std::cout << "prediction\n" << prediction << "\n";
+        std::cout << "measurement_so2\n" << measurement_so2 << "\n";
+        std::cout << "res\n"
+                  << Eigen::Matrix2f::Identity() - prediction.transpose() * measurement_so2 << "\n";
         return (Eigen::Matrix2f::Identity() - prediction.transpose() * measurement_so2).trace();
     };
     Eigen::Vector4f error;
@@ -24,7 +29,7 @@ auto rotsync::calculate_error_and_jacobian(const State& state, const Measurement
 /* int main(int argc, char *argv[]) { */
 int main() {
     auto c_pi = std::numbers::pi_v<float>;
-    rotsync::Measurement measurement{c_pi, c_pi, c_pi, c_pi};
+    rotsync::Measurement measurement{c_pi / 2, c_pi / 2, c_pi / 2, c_pi / 2};
 
     rotsync::State initial_state{};
 
