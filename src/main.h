@@ -27,46 +27,50 @@
 #include <tuple>
 
 namespace rotsync {
-using Perturbation = Eigen::Vector4f;
-using Measurement = Eigen::Vector4f;
-using Jacobian = Eigen::Matrix4f;
+using Perturbation = Eigen::Vector4d;
+using Measurement = Eigen::Vector4d;
+using Jacobian = Eigen::Matrix4d;
 
-inline Eigen::Rotation2Df exponential_map(const float angle) { return Eigen::Rotation2Df(angle); }
+inline Eigen::Rotation2Dd exponential_map(const double angle) { return Eigen::Rotation2Dd(angle); }
 
 class State {
 public:
     /* default constructor, all absolute rotations are 0 rad */
-    State() { std::fill(_states_so2.begin(), _states_so2.end(), Eigen::Rotation2Df(0.0)); };
+    State() { std::fill(_states_so2.begin(), _states_so2.end(), Eigen::Rotation2Dd(0.0)); };
 
     /* Construct with an array of angles. assumes radians input. */
-    explicit State(const Eigen::Vector4f& angles) {
+    explicit State(const Eigen::Vector4d& angles) {
         std::transform(angles.begin(), angles.end(), _states_so2.begin(),
-                       [](const auto angle) { return Eigen::Rotation2Df(angle); });
+                       [](const auto angle) { return Eigen::Rotation2Dd(angle); });
     }
 
     /* convert the so2 state vector to an eiger euler angle vector and return */
-    Eigen::Vector4f to_angles() const {
-        Eigen::Vector4f angles;
+    Eigen::Vector4d to_angles() const {
+        Eigen::Vector4d angles;
         std::transform(_states_so2.begin(), _states_so2.end(), angles.begin(),
                        [](const auto& rot_mat) { return rot_mat.angle(); });
         return angles;
     }
+    /* does this return a copy or a reference? what happens if i modify? */
+    std::array<Eigen::Rotation2Dd, 4> as_array() const { return _states_so2; }
 
-    /* in-place box plus with the perturbation R4 vector */
-    void box_plus(const Perturbation& perturbation) {
+    /* box plus with the perturbation R4 vector, return a new state*/
+    State box_plus(const Perturbation& perturbation) const {
+        State plussed_state{};
         std::transform(_states_so2.begin(), _states_so2.end(), perturbation.begin(),
-                       _states_so2.begin(),
-                       [](const Eigen::Rotation2Df& state, const float pert_angle) {
+                       plussed_state._states_so2.begin(),
+                       [](const Eigen::Rotation2Dd& state, const double pert_angle) {
                            return exponential_map(pert_angle) * state;
                        });
+        return plussed_state;
     }
     /* non-const reference to an element of the so2 state vector  */
-    Eigen::Rotation2Df& operator[](const std::size_t idx) {
+    Eigen::Rotation2Dd& operator[](const std::size_t idx) {
         assert(idx < 4 && "Index must be less than 4");
         return _states_so2.at(idx);
     }
     /* const reference to an element of the so2 state vector */
-    const Eigen::Rotation2Df& operator[](const std::size_t idx) const {
+    const Eigen::Rotation2Dd& operator[](const std::size_t idx) const {
         assert(idx < 4 && "Index must be less than 4");
         return _states_so2.at(idx);
     }
@@ -75,10 +79,22 @@ public:
             std::cout << "Angle: " << angle << " radians\n";
         }
     }
+    // Overload << operator for printing
+    friend std::ostream& operator<<(std::ostream& ostream, const State& state) {
+        ostream << "State {";
+        const auto& angles = state.to_angles();
+        for (const auto& angle : state.to_angles()) {
+            ostream << angle << ",";
+        }
+        ostream << "}";
+        return ostream;
+    }
 
 private:
-    std::array<Eigen::Rotation2Df, 4> _states_so2;
+    std::array<Eigen::Rotation2Dd, 4> _states_so2;
 };
 
-auto calculate_error_and_jacobian(const State& state, const Measurement& measurement);
+auto calculate_error_and_jacobian(const State& state,
+                                  const Measurement& measurement,
+                                  bool use_analytic_jacobian = true);
 };  // namespace rotsync
