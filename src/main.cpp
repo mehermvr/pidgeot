@@ -2,6 +2,8 @@
 
 #include <CLI/App.hpp>
 #include <CLI/CLI.hpp>
+
+#include "utils/timer.h"
 /* #include <iostream> */
 #include <numbers>
 
@@ -96,32 +98,17 @@ int main(int argc, char* argv[]) {
     int iter = 0;
     auto chi_square = [](const Eigen::Vector4d& error) { return error.squaredNorm(); };
     double chi_square_thresh = 1e-7;
+    auto timer = utils::Timer("LSQ optimization");
     while (iter < max_iter) {
         auto [error, jacobian] =
                 rotsync::calculate_error_and_jacobian(state, measurement, use_analytic_jacobian);
 
-        std::cout << "error is " << error << "\n";
-        std::cout << "jacobian is\n"
-                  << jacobian << "\nand determinant is " << jacobian.determinant() << " \n";
-        /* auto jacobian_with_fixed_dof = jacobian.block<4, 3>(0, 1); */
-        /* std::cout << "jacobian with fixed dof is\n" << jacobian_with_fixed_dof << "\n"; */
-        /* Eigen::Matrix3d hessian = jacobian_with_fixed_dof.transpose() * jacobian_with_fixed_dof;
-         */
-
-        /* Eigen::Vector3d rhs = -jacobian_with_fixed_dof.transpose() * error; */
         Eigen::Matrix4d hessian = jacobian.transpose() * jacobian;
         Eigen::Vector4d rhs = -jacobian.transpose() * error;
-
-        std::cout << "hessian \n"
-                  << hessian << "\nand determinant is " << hessian.determinant() << " \n";
-        std::cout << "rhs\n" << rhs << "\n";
         Eigen::Vector4d delta_x = Eigen::Vector4d::Zero();
-        /* std::cout << "delta_x is " << delta_x << "\n"; */
 
         /* first measurement is fixed */
-        /* delta_x.tail(3) = hessian.llt().solve(rhs); */
         delta_x.tail(3) = hessian.block<3, 3>(1, 1).llt().solve(rhs.tail(3));
-        /* std::cout << "error is " << error << "\n"; */
         state = state.box_plus(delta_x);
         if (chi_square(error) < chi_square_thresh) {
             /* this placed here means one extra iteration though */
@@ -130,6 +117,7 @@ int main(int argc, char* argv[]) {
                       << jacobian << "\nand determinant is " << jacobian.determinant() << " \n";
             std::cout << "hessian is\n"
                       << hessian << "\nand det is " << hessian.determinant() << " \n";
+            std::cout << "Iter: " << iter << " and chi_squared = " << chi_square(error) << "\n";
             break;
         }
         iter++;
