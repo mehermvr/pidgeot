@@ -1,36 +1,17 @@
 #pragma once
-
-/* the document */
-/*
- * H * delta_x = -g
- * H = J' J
- * g = J' error
- * x' = x + delta_x
- * iterate till convergence
- *
- * state SO2 x4
- * perturbation R4
- * box_plus(state, perturbation) = Exp(perturbation) * state
- * prediction(state, indexe i) = R_(i-1)' * R_i
- * measurement(i)
- * error(state, i) = tr(1 - prediction(state, indexed i)'measurement(i))
- * Jacobian(state, perturbation, measurement, i): R1x4 -> numerical or analytic
- * go to solve lin system
- */
-
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <algorithm>
 #include <array>
 #include <iostream>
-#include <tuple>
+
+#include "utils/numbers.h"
 
 namespace rotsync {
 using Perturbation = Eigen::Vector4d;
 using Measurement = Eigen::Vector4d;
 using Jacobian = Eigen::Matrix4d;
-constexpr auto c_pi = std::numbers::pi_v<double>;
 
 inline Eigen::Rotation2Dd exponential_map(const double angle) { return Eigen::Rotation2Dd(angle); }
 
@@ -86,7 +67,7 @@ public:
         ostream << "State {";
         const auto& angles = state.to_angles();
         for (const auto& angle : state.to_angles()) {
-            ostream << angle * 180 / c_pi << ",";
+            ostream << angle * 180 / utils::C_PI << "\u00B0,";
         }
         ostream << "}";
         return ostream;
@@ -96,7 +77,4 @@ private:
     std::array<Eigen::Rotation2Dd, 4> _states_so2;
 };
 
-auto calculate_error_and_jacobian(const State& state,
-                                  const Measurement& measurement,
-                                  bool use_analytic_jacobian = true);
-};  // namespace rotsync
+}  // namespace rotsync
