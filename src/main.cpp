@@ -70,21 +70,32 @@ int main(int argc, char* argv[]) {
     bool use_analytic_jacobian = true;
     app.add_flag("--analytic,!--numeric", use_analytic_jacobian,
                  "Use analytic jacobian or numeric.");
-
+    /* doesnt work, too far */
+    /* std::array initial_state_array{0, 0, 0, 0}; */
+    /* error at 0 is 0 */
+    /* std::array initial_state_array{0, rotsync::c_pi / 2, rotsync::c_pi, 3 * rotsync::c_pi / 2};
+     */
+    /* random initial guess that is somewhat close */
+    std::vector<double> initial_state_vector{0, rotsync::c_pi / 1.4, 0.8 * rotsync::c_pi,
+                                             2 * rotsync::c_pi};
+    app.add_option("--initial_guess", initial_state_vector,
+                   "Initial state array. seperate with spaces");
     CLI11_PARSE(app, argc, argv);
     /* CLI done*/
 
-    auto c_pi = std::numbers::pi_v<double>;
-    rotsync::Measurement measurement{c_pi / 2, c_pi / 2, c_pi / 2, c_pi / 2};
+    rotsync::Measurement measurement{rotsync::c_pi / 2, rotsync::c_pi / 2, rotsync::c_pi / 2,
+                                     rotsync::c_pi / 2};
 
-    rotsync::State initial_state{};
-    /* rotsync::State initial_state{{0, c_pi / 2, c_pi, 3 * c_pi / 2}}; */
+    /* rotsync::State initial_state{{0, 0, 0, 0}}; */
+    /* rotsync::State initial_state{{0, rotsync::c_pi / 2, rotsync::c_pi, 3 * rotsync::c_pi / 2}};
+     */
+    rotsync::State initial_state{initial_state_vector};
     std::cout << "Initial state is " << initial_state << "\n";
 
     auto state = initial_state;
     int iter = 0;
     auto chi_square = [](const Eigen::Vector4d& error) { return error.squaredNorm(); };
-    double chi_square_thresh = 1e-3;
+    double chi_square_thresh = 1e-7;
     while (iter < max_iter) {
         auto [error, jacobian] =
                 rotsync::calculate_error_and_jacobian(state, measurement, use_analytic_jacobian);
@@ -92,17 +103,24 @@ int main(int argc, char* argv[]) {
         std::cout << "error is " << error << "\n";
         std::cout << "jacobian is\n"
                   << jacobian << "\nand determinant is " << jacobian.determinant() << " \n";
-        Eigen::Matrix<double, 4, 3> jacobian_with_fixed_dof = jacobian.block<4, 3>(0, 1);
-        std::cout << "jacobian with fixed dof is\n" << jacobian_with_fixed_dof << "\n";
-        Eigen::Matrix3d hessian = jacobian_with_fixed_dof.transpose() * jacobian_with_fixed_dof;
-        Eigen::Vector3d rhs = -jacobian_with_fixed_dof.transpose() * error;
-        Eigen::Vector4d delta_x = Eigen::Vector4d::Zero();
-        /* first measurement is fixed */
-        delta_x.tail(3) = hessian.llt().solve(rhs);
+        /* auto jacobian_with_fixed_dof = jacobian.block<4, 3>(0, 1); */
+        /* std::cout << "jacobian with fixed dof is\n" << jacobian_with_fixed_dof << "\n"; */
+        /* Eigen::Matrix3d hessian = jacobian_with_fixed_dof.transpose() * jacobian_with_fixed_dof;
+         */
+
+        /* Eigen::Vector3d rhs = -jacobian_with_fixed_dof.transpose() * error; */
+        Eigen::Matrix4d hessian = jacobian.transpose() * jacobian;
+        Eigen::Vector4d rhs = -jacobian.transpose() * error;
+
         std::cout << "hessian \n"
                   << hessian << "\nand determinant is " << hessian.determinant() << " \n";
-        std::cout << "rhs " << rhs << "\n";
+        std::cout << "rhs\n" << rhs << "\n";
+        Eigen::Vector4d delta_x = Eigen::Vector4d::Zero();
         /* std::cout << "delta_x is " << delta_x << "\n"; */
+
+        /* first measurement is fixed */
+        /* delta_x.tail(3) = hessian.llt().solve(rhs); */
+        delta_x.tail(3) = hessian.block<3, 3>(1, 1).llt().solve(rhs.tail(3));
         /* std::cout << "error is " << error << "\n"; */
         state = state.box_plus(delta_x);
         if (chi_square(error) < chi_square_thresh) {

@@ -30,6 +30,7 @@ namespace rotsync {
 using Perturbation = Eigen::Vector4d;
 using Measurement = Eigen::Vector4d;
 using Jacobian = Eigen::Matrix4d;
+constexpr auto c_pi = std::numbers::pi_v<double>;
 
 inline Eigen::Rotation2Dd exponential_map(const double angle) { return Eigen::Rotation2Dd(angle); }
 
@@ -39,7 +40,8 @@ public:
     State() { std::fill(_states_so2.begin(), _states_so2.end(), Eigen::Rotation2Dd(0.0)); };
 
     /* Construct with an array of angles. assumes radians input. */
-    explicit State(const Eigen::Vector4d& angles) {
+    template <typename T>
+    State(const T& angles) {
         std::transform(angles.begin(), angles.end(), _states_so2.begin(),
                        [](const auto angle) { return Eigen::Rotation2Dd(angle); });
     }
@@ -84,7 +86,7 @@ public:
         ostream << "State {";
         const auto& angles = state.to_angles();
         for (const auto& angle : state.to_angles()) {
-            ostream << angle << ",";
+            ostream << angle * 180 / c_pi << ",";
         }
         ostream << "}";
         return ostream;
