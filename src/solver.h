@@ -24,7 +24,6 @@
 
 #include "state.h"
 namespace rotsync {
-
 inline auto chi_square(const Eigen::Vector4d& error) { return error.squaredNorm(); };
 
 class Solver {
@@ -117,6 +116,8 @@ public:
             if (verbose) {
                 std::cout << "Iter: " << _iter << " and chi_squared = " << chi_square(error)
                           << "\n";
+                std::cout << "jacobian is\n"
+                          << jacobian << "\nand determinant is " << jacobian.determinant() << " \n";
             }
             if (chi_square(error) < _chi_square_thresh) {
                 /* this placed here means one extra iteration though */

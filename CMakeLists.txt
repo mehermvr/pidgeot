@@ -5,6 +5,7 @@ project(lsq_hw)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_BUILD_TYPE Debug)
 
 # function includes
 include(cmake/setTargetOutputDirectories.cmake)
