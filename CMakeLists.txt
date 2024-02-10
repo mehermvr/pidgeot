@@ -9,7 +9,7 @@ set(CMAKE_BUILD_TYPE Debug)
 
 # function includes
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/setTargetOutputDirectories.cmake)
-# dependencies
+
 include(${CMAKE_CURRENT_LIST_DIR}/3rdparty/dependencies.cmake)
 
 add_subdirectory(src)

@@ -1,4 +1,3 @@
-#include <CLI/App.hpp>
 #include <CLI/CLI.hpp>
 #include <iostream>
 
@@ -17,12 +16,9 @@ int main(int argc, char* argv[]) {
                  "Use analytic jacobian or numeric.");
     bool verbose = false;
     app.add_flag("--verbose", verbose, "Additional debug info");
-    /* doesnt work, too far */
-    /* std::array initial_state_array{0, 0, 0, 0}; */
     /* error at 0 is 0 */
-    /* std::array initial_state_array{0, rotsync::c_pi / 2, rotsync::c_pi, 3 * rotsync::c_pi
-     * / 2};
-     */
+    /* std::array<double, 4> initial_state_array{0, utils::C_PI / 2, utils::C_PI, 3 * utils::C_PI /
+     * 2}; */
     /* random initial guess that is somewhat close */
     std::vector<double> initial_state_vector{0, utils::C_PI / 1.4, 0.8 * utils::C_PI,
                                              2 * utils::C_PI};
@@ -35,9 +31,6 @@ int main(int argc, char* argv[]) {
     rotsync::Measurement measurement{utils::C_PI / 2, utils::C_PI / 2, utils::C_PI / 2,
                                      utils::C_PI / 2};
 
-    /* rotsync::State initial_state{{0, 0, 0, 0}}; */
-    /* rotsync::State initial_state{{0, rotsync::c_pi / 2, rotsync::c_pi, 3 * rotsync::c_pi / 2}};
-     */
     rotsync::State initial_state{initial_state_vector};
     std::cout << "Initial state is " << initial_state << "\n";
 
