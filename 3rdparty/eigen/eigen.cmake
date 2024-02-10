@@ -17,6 +17,6 @@ set(EIGEN_BUILD_LAPACK
 include(FetchContent)
 FetchContent_Declare(
   eigen
-  GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-  GIT_TAG 287c8017808fb4c7a651ba4c02363a773e2f0c46) # hash for v 3.4 commit
+  URL https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+)# downloading the zip is faster than cloning a repo
 FetchContent_MakeAvailable(eigen)
