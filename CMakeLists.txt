@@ -8,16 +8,8 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_BUILD_TYPE Debug)
 
 # function includes
-include(cmake/setTargetOutputDirectories.cmake)
-
-include(FetchContent)
-FetchContent_Declare(
-    cli11_proj
-    QUIET
-    GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
-    GIT_TAG f4d0731
-)
-
-FetchContent_MakeAvailable(cli11_proj)
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/setTargetOutputDirectories.cmake)
+# dependencies
+include(${CMAKE_CURRENT_LIST_DIR}/3rdparty/dependencies.cmake)
 
 add_subdirectory(src)
