@@ -1,12 +1,12 @@
 #pragma once
 
+#include <pb_utils/numbers.h>
+
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <algorithm>
 #include <array>
 #include <iostream>
-
-#include "utils/numbers.h"
 
 namespace rotsync {
 using Perturbation = Eigen::Vector4d;

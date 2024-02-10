@@ -1,10 +1,11 @@
+#include <pb_utils/numbers.h>
+#include <pb_utils/timer.h>
+
 #include <CLI/CLI.hpp>
 #include <iostream>
 
 #include "solver.h"
 #include "state.h"
-#include "utils/numbers.h"
-#include "utils/timer.h"
 
 int main(int argc, char* argv[]) {
     /* CLI start */
