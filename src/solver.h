@@ -114,17 +114,19 @@ public:
             /* first measurement is fixed */
             delta_x.tail(3) = hessian.block<3, 3>(1, 1).llt().solve(rhs.tail(3));
             _state = _state.box_plus(delta_x);
+            if (verbose) {
+                std::cout << "Iter: " << _iter << " and chi_squared = " << chi_square(error)
+                          << "\n";
+            }
             if (chi_square(error) < _chi_square_thresh) {
                 /* this placed here means one extra iteration though */
                 if (verbose) {
-                    std::cout << "error is " << error << "\n";
+                    std::cout << "error is\n" << error << "\n";
                     std::cout << "jacobian is\n"
                               << jacobian << "\nand determinant is " << jacobian.determinant()
                               << " \n";
                     std::cout << "hessian is\n"
                               << hessian << "\nand det is " << hessian.determinant() << " \n";
-                    std::cout << "Iter: " << _iter << " and chi_squared = " << chi_square(error)
-                              << "\n";
                 }
                 break;
             }
