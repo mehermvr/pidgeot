@@ -16,7 +16,7 @@ int main(int argc, char* argv[]) {
     app.add_flag("--analytic,!--numeric", use_analytic_jacobian,
                  "Use analytic jacobian or numeric.");
     bool verbose = false;
-    app.add_flag("--verbose", verbose, "Additional debug info");
+    app.add_flag("--verbose,-v", verbose, "Additional debug info");
     /* error at 0 is 0 */
     /* std::array<double, 4> initial_state_array{0, utils::C_PI / 2, utils::C_PI, 3 * utils::C_PI /
      * 2}; */
