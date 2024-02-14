@@ -12,9 +12,9 @@ int main(int argc, char* argv[]) {
     CLI::App app{"Least square kacken"};
     int max_iter = 1000;
     app.add_option("max_iter", max_iter, "Max iterations of Least Squares");
-    bool use_analytic_jacobian = true;
-    app.add_flag("--analytic,!--numeric", use_analytic_jacobian,
-                 "Use analytic jacobian or numeric.");
+    /* bool use_analytic_jacobian = true; */
+    /* app.add_flag("--analytic,!--numeric", use_analytic_jacobian, */
+    /* "Use analytic jacobian or numeric."); */
     bool verbose = false;
     app.add_flag("--verbose,-v", verbose, "Additional debug info");
     /* error at 0 is 0 */
@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Initial state is " << initial_state << "\n";
 
     utils::Timer timer("LSQ optimization");
-    rotsync::Solver solver(initial_state, measurement, use_analytic_jacobian, max_iter);
+    rotsync::Solver solver(initial_state, measurement, max_iter);
     auto final_state = solver.solve(verbose);
     std::cout << "Final state is " << final_state << "\n";
     return 0;

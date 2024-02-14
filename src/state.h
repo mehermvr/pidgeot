@@ -22,7 +22,7 @@ public:
 
     /* Construct with an array of angles. assumes radians input. */
     template <typename T>
-    State(const T& angles) {
+    explicit State(const T& angles) {
         std::transform(angles.cbegin(), angles.cend(), _states_so2.begin(),
                        [](const auto angle) { return Eigen::Rotation2Dd(angle); });
     }

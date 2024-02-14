@@ -3,115 +3,94 @@
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <numeric>
 
 #include "state.h"
 namespace rotsync {
 inline auto chi_square(const Eigen::Vector4d& error) { return error.squaredNorm(); };
 
+struct LinearSystemEntry {
+    LinearSystemEntry& operator+=(const LinearSystemEntry& other) {
+        this->H += other.H;
+        this->g += other.g;
+        this->chi_square += other.chi_square;
+        return *this;
+    }
+    friend LinearSystemEntry operator+(LinearSystemEntry lhs, const LinearSystemEntry& rhs) {
+        lhs += rhs;
+        return lhs;
+    }
+    Eigen::Matrix4d H = Eigen::Matrix4d::Zero();
+    Eigen::Vector4d g = Eigen::Vector4d::Zero();
+    double chi_square = 0.0;
+};
+
 class Solver {
 private:
-    State _initial_state;
     State _state;
     Measurement _measurement;
-    bool _use_analytic_jacobian;
     int _max_iter;
     double _chi_square_thresh;
     int _iter{0};
 
-    Eigen::Vector4d calculate_error(const State& state) {
-        auto calc_error_scalar = [](const Eigen::Rotation2Dd& state_1,
-                                    const Eigen::Rotation2Dd& state_2, const double relative_rot) {
-            Eigen::Matrix2d prediction =
-                    state_1.toRotationMatrix().transpose() * state_2.toRotationMatrix();
-            Eigen::Matrix2d measurement_so2 = Eigen::Rotation2Dd(relative_rot).toRotationMatrix();
-            return (Eigen::Matrix2d::Identity() - prediction.transpose() * measurement_so2).trace();
-        };
-        Eigen::Vector4d error = Eigen::Vector4d::Zero();
-        for (int i = 0; i < error.size(); i++) {
-            error[i] = calc_error_scalar(state[i], state[(i + 1) % 4], _measurement[i]);
-        }
-        return error;
-    }
-    Eigen::Matrix4d calculate_numerical_jacobian() {
-        Eigen::Matrix4d jacobian = Eigen::Matrix4d::Zero();
-        auto initial_error = calculate_error(_state);
-        double epsilon = 1e-8;
-        for (int idx = 0; idx < jacobian.cols(); idx++) {
-            auto perturbed_state = _state;
-            Eigen::Vector4d perturbation = Eigen::Vector4d::Zero();
-            perturbation[idx] += epsilon;
-            perturbed_state.box_plus(perturbation);
-            auto perturbed_error = calculate_error(_state);
-            auto delta_error = perturbed_error - initial_error;
-            jacobian.col(idx) = delta_error / epsilon;
-        }
-        return jacobian;
-    }
-    Eigen::Matrix4d calculate_analytical_jacobian() {
-        Eigen::Matrix4d jacobian = Eigen::Matrix4d::Zero();
-        auto wrap_index = [](int idx) { return idx % 4; };
-        for (int idx = 0; idx < jacobian.cols(); idx++) {
-            jacobian(idx, idx) =
-                    2 * std::sin(_state[idx].angle() - _state[wrap_index(idx + 1)].angle() +
-                                 _measurement[idx]);
-            jacobian(idx, wrap_index(idx + 1)) =
-                    -2 * std::sin(_state[idx].angle() - _state[wrap_index(idx + 1)].angle() +
-                                  _measurement[idx]);
-        }
-        return jacobian;
-    }
-    auto calculate_error_and_jacobian() {
-        /* calc error */
-        Eigen::Vector4d error = calculate_error(_state);
-        Jacobian jacobian;
-        if (_use_analytic_jacobian) {
-            jacobian = calculate_analytical_jacobian();
-        } else {
-            jacobian = calculate_numerical_jacobian();
-        }
-        return std::tuple(error, jacobian);
-    }
-
 public:
     Solver(const State& initial_state,
            const Measurement& measurement,
-           bool use_analytic_jacobian = true,
            int max_iter = 1000,
            double chi_square_thresh = 1e-8)
-        : _initial_state(initial_state),
-          _state(initial_state),
+        : _state(initial_state),
           _measurement(measurement),
-          _use_analytic_jacobian(use_analytic_jacobian),
           _max_iter(max_iter),
           _chi_square_thresh(chi_square_thresh) {}
 
     auto solve(bool verbose = false) {
+        auto rotation_derived = [](const double angle) {
+            Eigen::Matrix2d R_dot;
+            R_dot(0, 0) = -std::sin(angle);
+            R_dot(0, 1) = -std::cos(angle);
+            R_dot(1, 0) = std::cos(angle);
+            R_dot(1, 1) = -std::sin(angle);
+            return R_dot;
+        };
+        auto get_linear_system_entry = [&](const int index) {
+            const auto& from = _state[index];
+            const auto to_index = index < 3 ? index + 1 : 0;
+            const auto& to = _state[to_index];
+            const auto& z = _measurement(index);
+            Eigen::Vector4d h_ij = (from.inverse() * to).toRotationMatrix().reshaped();
+            Eigen::Vector4d e = h_ij - Eigen::Rotation2Dd(z).toRotationMatrix().reshaped();
+            Eigen::Vector4d Ji =
+                    (rotation_derived(from.angle()).transpose() * to.toRotationMatrix()).reshaped();
+            Eigen::Vector4d Jj =
+                    (from.inverse().toRotationMatrix() * rotation_derived(to.angle())).reshaped();
+            LinearSystemEntry entry;
+            auto& [H, g, chi] = entry;
+            H(index, index) = Ji.transpose() * Ji;
+            H(to_index, to_index) = Jj.transpose() * Jj;
+            H(index, to_index) = Ji.transpose() * Jj;
+            H(to_index, index) = H(index, to_index);
+            g(index) = -Ji.transpose() * e;
+            g(to_index) = -Jj.transpose() * e;
+            chi += e.squaredNorm();
+            return entry;
+        };
+        std::vector<int> indices(4);
+        std::iota(indices.begin(), indices.end(), 0);
+        Eigen::Vector4d dx = Eigen::Vector4d::Zero();
         while (_iter < _max_iter) {
-            auto [error, jacobian] = calculate_error_and_jacobian();
-
-            Eigen::Matrix4d hessian = jacobian.transpose() * jacobian;
-            Eigen::Vector4d rhs = -jacobian.transpose() * error;
-            Eigen::Vector4d delta_x = Eigen::Vector4d::Zero();
-
-            /* first measurement is fixed */
-            delta_x.tail(3) = hessian.block<3, 3>(1, 1).llt().solve(rhs.tail(3));
-            _state.box_plus(delta_x);
+            LinearSystemEntry init;
+            const auto& [H, g, chi_square] = std::transform_reduce(
+                    indices.cbegin(), indices.cend(), init, std::plus<>(), get_linear_system_entry);
             if (verbose) {
-                std::cout << "Iter: " << _iter << " and chi_squared = " << chi_square(error)
-                          << "\n";
-                std::cout << "jacobian is\n"
-                          << jacobian << "\nand determinant is " << jacobian.determinant() << " \n";
+                std::cout << "Iter: " << _iter << " and chi_squared = " << chi_square << "\n";
+                std::cout << "hessian is\n"
+                          << g.transpose() << "\n\n"
+                          << H.bottomRightCorner<3, 3>() << "\nand det is "
+                          << H.bottomRightCorner<3, 3>().determinant() << " \n";
             }
-            if (chi_square(error) < _chi_square_thresh) {
-                /* this placed here means one extra iteration though */
-                if (verbose) {
-                    std::cout << "error is\n" << error << "\n";
-                    std::cout << "jacobian is\n"
-                              << jacobian << "\nand determinant is " << jacobian.determinant()
-                              << " \n";
-                    std::cout << "hessian is\n"
-                              << hessian << "\nand det is " << hessian.determinant() << " \n";
-                }
+            dx.tail<3>() = H.bottomRightCorner<3, 3>().ldlt().solve(g.tail<3>());
+            _state.box_plus(dx);
+            if (chi_square < _chi_square_thresh) {
                 break;
             }
             _iter++;
