@@ -1,9 +1,5 @@
-BasedOnStyle: Google
-IndentWidth: 4
+BasedOnStyle: LLVM
 ColumnLimit: 100
-UseTab: Never
-Standard: c++20
-ContinuationIndentWidth: 8
-AccessModifierOffset: -4
+BinPackArguments: true
 BinPackParameters: false
-SortIncludes: CaseSensitive
+PackConstructorInitializers: NextLine
