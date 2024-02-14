@@ -37,10 +37,11 @@ private:
         auto initial_error = calculate_error(_state);
         double epsilon = 1e-8;
         for (int idx = 0; idx < jacobian.cols(); idx++) {
+            auto perturbed_state = _state;
             Eigen::Vector4d perturbation = Eigen::Vector4d::Zero();
             perturbation[idx] += epsilon;
-            auto plussed_state = _state.box_plus(perturbation);
-            auto perturbed_error = calculate_error(plussed_state);
+            perturbed_state.box_plus(perturbation);
+            auto perturbed_error = calculate_error(_state);
             auto delta_error = perturbed_error - initial_error;
             jacobian.col(idx) = delta_error / epsilon;
         }
@@ -94,7 +95,7 @@ public:
 
             /* first measurement is fixed */
             delta_x.tail(3) = hessian.block<3, 3>(1, 1).llt().solve(rhs.tail(3));
-            _state = _state.box_plus(delta_x);
+            _state.box_plus(delta_x);
             if (verbose) {
                 std::cout << "Iter: " << _iter << " and chi_squared = " << chi_square(error)
                           << "\n";

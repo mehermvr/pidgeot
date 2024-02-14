@@ -23,7 +23,7 @@ public:
     /* Construct with an array of angles. assumes radians input. */
     template <typename T>
     State(const T& angles) {
-        std::transform(angles.begin(), angles.end(), _states_so2.begin(),
+        std::transform(angles.cbegin(), angles.cend(), _states_so2.begin(),
                        [](const auto angle) { return Eigen::Rotation2Dd(angle); });
     }
 
@@ -35,17 +35,15 @@ public:
         return angles;
     }
     /* does this return a copy or a reference? what happens if i modify? */
-    std::array<Eigen::Rotation2Dd, 4> as_array() const { return _states_so2; }
+    const std::array<Eigen::Rotation2Dd, 4>& as_array() const { return _states_so2; }
 
     /* box plus with the perturbation R4 vector, return a new state*/
-    State box_plus(const Perturbation& perturbation) const {
-        State plussed_state{};
-        std::transform(_states_so2.begin(), _states_so2.end(), perturbation.begin(),
-                       plussed_state._states_so2.begin(),
+    void box_plus(const Perturbation& perturbation) {
+        std::transform(_states_so2.cbegin(), _states_so2.cend(), perturbation.cbegin(),
+                       _states_so2.begin(),
                        [](const Eigen::Rotation2Dd& state, const double pert_angle) {
                            return exponential_map(pert_angle) * state;
                        });
-        return plussed_state;
     }
     /* non-const reference to an element of the so2 state vector  */
     Eigen::Rotation2Dd& operator[](const std::size_t idx) {
