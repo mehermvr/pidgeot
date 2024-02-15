@@ -6,7 +6,9 @@
 #include <numeric>
 #include <ranges>
 
+#include "measurement.h"
 #include "state.h"
+
 namespace {
 struct LinearSystemEntry {
   LinearSystemEntry& operator+=(const LinearSystemEntry& other) {
@@ -25,8 +27,7 @@ struct LinearSystemEntry {
 };
 
 } // namespace
-namespace rotsync {
-inline auto chi_square(const Eigen::Vector4d& error) { return error.squaredNorm(); };
+namespace pigeotto {
 class Solver {
 private:
   State _state;
@@ -41,7 +42,10 @@ public:
 
   auto solve(bool verbose = false) {
     auto rotation_derived = [](const double angle) {
-      Eigen::Matrix2d R_dot{{-std::sin(angle), -std::cos(angle)}, {std::cos(angle), -std::sin(angle)}};
+      Eigen::Matrix2d R_dot{
+          {-std::sin(angle), -std::cos(angle)},
+          { std::cos(angle), -std::sin(angle)}
+      };
       return R_dot;
     };
     auto get_linear_system_entry = [&](const int index) {
@@ -88,4 +92,4 @@ public:
     return _state;
   }
 };
-}; // namespace rotsync
+}; // namespace pigeotto

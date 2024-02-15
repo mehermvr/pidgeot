@@ -4,7 +4,8 @@
 #include <CLI/CLI.hpp>
 #include <iostream>
 
-#include "solver.h"
+#include "measurement.h"
+/* #include "solver.h" */
 #include "state.h"
 
 int main(int argc, char* argv[]) {
@@ -18,22 +19,28 @@ int main(int argc, char* argv[]) {
   bool verbose = false;
   app.add_flag("--verbose,-v", verbose, "Additional debug info");
   /* random initial guess that is somewhat close */
-  std::vector<double> initial_state_vector{0, utils::PI / 1.4, 0.8 * utils::PI, 2 * utils::PI};
-  app.add_option("--initial_guess", initial_state_vector,
-                 "Initial state vector. seperate with spaces")
-      ->expected(4);
+  /* std::vector<double> initial_state_vector{0, utils::PI / 1.4, 0.8 * utils::PI, 2 * utils::PI}; */
+  /* app.add_option("--initial_guess", initial_state_vector, "Initial state vector. seperate with spaces")->expected(4);
+   */
   CLI11_PARSE(app, argc, argv);
   /* CLI done*/
 
-  rotsync::Measurement measurement{utils::PI / 2, utils::PI / 2, utils::PI / 2, utils::PI / 2};
+  pigeotto::Measurement measurement{
+      {0, 1, utils::PI / 2},
+      {1, 2, utils::PI / 2},
+      {2, 3, utils::PI / 2},
+      {3, 0, utils::PI / 2}
+  };
+  std::cout << measurement;
 
-  rotsync::State initial_state{initial_state_vector};
-  std::cout << "Initial state is " << initial_state << "\n";
+  pigeotto::State initial_state({0, 0, 0, 0.1});
+  std::cout << initial_state;
+  /* std::cout << "Initial state is " << initial_state << "\n"; */
 
-  utils::Timer timer("LSQ optimization");
-  rotsync::Solver solver(max_iter, initial_state, measurement);
-  auto final_state = solver.solve(verbose);
+  /* utils::Timer timer("LSQ optimization"); */
+  /* pigeotto::Solver solver(max_iter, initial_state, measurement); */
+  /* auto final_state = solver.solve(verbose); */
 
-  std::cout << "Final state is " << final_state << "\n";
+  /* std::cout << "Final state is " << final_state << "\n"; */
   return 0;
 }
