@@ -11,67 +11,80 @@
 #include <unordered_map>
 #include <utility>
 
-namespace pigeotto {
-using Perturbation = Eigen::Vector4d;
-using Jacobian = Eigen::Matrix4d;
-
-inline Eigen::Rotation2Dd exponential_map(const double angle) { return Eigen::Rotation2Dd(angle); }
+namespace pidgeot {
 
 struct AtomicState {
   int index;
-  Eigen::Rotation2Dd element;
+  Eigen::Rotation2Dd rotation;
 
-  AtomicState(const int idx, const double angle) : element(Eigen::Rotation2Dd(angle)), index(idx) {}
+  AtomicState(const int idx, const double angle) : index(idx), rotation(Eigen::Rotation2Dd(angle)) {}
+  AtomicState(const int idx, const Eigen::Rotation2Dd rot) : index(idx), rotation(rot) {}
+
+  /* overloading for left hand side multiplication */
+  AtomicState& operator*=(const Eigen::Rotation2Dd& transform) {
+    this->rotation = transform * this->rotation;
+    return *this;
+  }
 
   friend std::ostream& operator<<(std::ostream& os, const AtomicState& state_atom) {
-    os << state_atom.index << ": " << state_atom.element.angle() << "\u00B0";
+    os << state_atom.index << ": " << lutils::rad2deg(state_atom.rotation.angle()) << "\u00B0";
     return os;
   }
 };
 
 class State {
-public:
-  std::unordered_map<int, AtomicState> elements;
+private:
+  std::unordered_map<int, AtomicState> _elements;
 
+public:
+  /* construct states of length a certain size with default angle 0.0 */
   explicit State(int size) {
     for (int idx : std::views::iota(0, size)) {
-      elements.emplace(std::piecewise_construct, std::forward_as_tuple(idx), std::forward_as_tuple(idx, 0.0));
+      _elements.emplace(std::piecewise_construct, std::forward_as_tuple(idx), std::forward_as_tuple(idx, 0.0));
     }
   }
 
   explicit State(const std::vector<double>& angles) {
     for (const auto& [idx, angle] : std::views::enumerate(angles)) {
-      elements.emplace(std::piecewise_construct, std::forward_as_tuple(idx), std::forward_as_tuple(idx, angle));
+      _elements.emplace(std::piecewise_construct, std::forward_as_tuple(idx), std::forward_as_tuple(idx, angle));
     }
   }
+
   explicit State(const std::vector<AtomicState>& state_atoms) {
     for (const auto& state_atom : state_atoms) {
-      elements.emplace(state_atom.index, state_atom);
+      _elements.emplace(state_atom.index, state_atom);
     }
   }
-  /* convert the so2 state vector to an eiger euler angle vector and return */
-  /* Eigen::Vector4d to_angles() const { */
-  /*   Eigen::Vector4d angles; */
-  /*   std::ranges::transform(_states, angles.begin(), [](const auto& state_atom) { return rot_mat.angle(); }); */
-  /*   return angles; */
-  /* } */
+  /* thin wrapper around the map */
+  auto begin() { return _elements.begin(); }
+  auto begin() const { return _elements.cbegin(); }
+  auto end() { return _elements.end(); }
+  auto end() const { return _elements.cend(); }
 
-  /* box plus with the perturbation R4 vector, return a new state*/
-  /* void box_plus(const Perturbation& perturbation) { */
-  /*   std::ranges::transform( */
-  /*       _states, perturbation, _states.begin(), */
-  /*       [](const Eigen::Rotation2Dd& state, const double pert_angle) { return exponential_map(pert_angle) * state;
-   * }); */
-  /* } */
-  /* const reference to an element of the so2 state vector */
-  /* const Eigen::Rotation2Dd& operator[](const std::size_t idx) const { */
-  /*   assert(idx < 4 && "Index must be less than 4"); */
-  /*   return _states.at(idx); */
-  /* } */
+  auto& operator[](const int idx) { return _elements.at(idx); }
+  const auto& operator[](const int idx) const { return _elements.at(idx); }
+
+  /* box plus with the perturbation vector */
+  /* templating to handle eigen vectors or std vectors */
+  template <typename T>
+    requires std::ranges::input_range<T>
+  void box_plus(const T& perturbation) {
+    assert(perturbation.size() == _elements.size() && "Size of perturbation must be same as state");
+    std::ranges::for_each(std::views::enumerate(perturbation), [this](const auto& enum_elem) {
+      const auto& [idx, pert_angle] = enum_elem;
+      auto pert_rotation = Eigen::Rotation2Dd(pert_angle); // exponential map
+      /* this is fine */
+      /* std::cout << _elements.at(idx); */
+      /* this is not fine */
+      /* std::cout << _elements[idx]; */
+      _elements.at(idx) *= pert_rotation; // left multiplication
+    });
+  }
+
   // Overload << operator for printing, expensive since a copy is made for sorting
   friend std::ostream& operator<<(std::ostream& os, const State& state) {
-    std::vector<std::pair<int, AtomicState>> pairs(state.elements.begin(), state.elements.end());
-    std::sort(pairs.begin(), pairs.end(), [](const auto& A, const auto& B) { return A.first < B.first; });
+    std::vector<std::pair<int, AtomicState>> pairs(state.begin(), state.end());
+    std::ranges::sort(pairs, [](const auto& A, const auto& B) { return A.first < B.first; });
     os << "State {";
     for (const auto& [idx, state_atom] : pairs) {
       os << state_atom << ", ";
@@ -81,4 +94,4 @@ public:
   }
 };
 
-} // namespace pigeotto
+} // namespace pidgeot

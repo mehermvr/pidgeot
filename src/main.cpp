@@ -5,7 +5,7 @@
 #include <iostream>
 
 #include "measurement.h"
-/* #include "solver.h" */
+#include "solver.h"
 #include "state.h"
 
 int main(int argc, char* argv[]) {
@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
   CLI11_PARSE(app, argc, argv);
   /* CLI done*/
 
-  pigeotto::Measurement measurement{
+  pidgeot::Measurement measurement{
       {0, 1, utils::PI / 2},
       {1, 2, utils::PI / 2},
       {2, 3, utils::PI / 2},
@@ -33,14 +33,13 @@ int main(int argc, char* argv[]) {
   };
   std::cout << measurement;
 
-  pigeotto::State initial_state({0, 0, 0, 0.1});
-  std::cout << initial_state;
-  /* std::cout << "Initial state is " << initial_state << "\n"; */
+  pidgeot::State initial_state({0, 0, 0, 0.1});
+  std::cout << "Initial state is " << initial_state << "\n";
 
-  /* utils::Timer timer("LSQ optimization"); */
-  /* pigeotto::Solver solver(max_iter, initial_state, measurement); */
-  /* auto final_state = solver.solve(verbose); */
+  utils::Timer timer("LSQ optimization");
+  pidgeot::Solver solver(max_iter, initial_state, measurement);
+  auto final_state = solver.solve(verbose);
 
-  /* std::cout << "Final state is " << final_state << "\n"; */
+  std::cout << "Final state is " << final_state << "\n";
   return 0;
 }

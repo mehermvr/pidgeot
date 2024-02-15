@@ -1,7 +1,7 @@
 #include "measurement.h"
 #include "utils.h"
 
-namespace pigeotto {
+namespace pidgeot {
 // Overload << for Measurement
 std::ostream& operator<<(std::ostream& os, const Measurement& measurement) {
   os << "Measurement:";
@@ -11,4 +11,4 @@ std::ostream& operator<<(std::ostream& os, const Measurement& measurement) {
   os << "\n";
   return os;
 }
-} // namespace pigeotto
+} // namespace pidgeot

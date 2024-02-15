@@ -11,36 +11,41 @@
 
 namespace {
 struct LinearSystemEntry {
+  Eigen::MatrixXd H;
+  Eigen::VectorXd g;
+  double chi_square{0.0};
+
+  LinearSystemEntry(const size_t size): H(Eigen::MatrixXd::Zero(size, size)), g(Eigen::VectorXd::Zero(size)){
+  }
+
   LinearSystemEntry& operator+=(const LinearSystemEntry& other) {
     this->H += other.H;
     this->g += other.g;
     this->chi_square += other.chi_square;
     return *this;
   }
+
   friend LinearSystemEntry operator+(LinearSystemEntry lhs, const LinearSystemEntry& rhs) {
     lhs += rhs;
     return lhs;
   }
-  Eigen::Matrix4d H{Eigen::Matrix4d::Zero()};
-  Eigen::Vector4d g{Eigen::Vector4d::Zero()};
-  double chi_square{0.0};
 };
-
 } // namespace
-namespace pigeotto {
+
+namespace pidgeot {
 class Solver {
 private:
+  int _max_iter;
   State _state;
   Measurement _measurement;
-  int _max_iter;
   double _chi_square_thresh;
-  int _iter{0};
 
 public:
   Solver(int max_iter, const State& initial_state, const Measurement& measurement, double chi_square_thresh = 1e-8)
       : _state(initial_state), _measurement(measurement), _max_iter(max_iter), _chi_square_thresh(chi_square_thresh) {}
 
   auto solve(bool verbose = false) {
+    const auto system_size = _measurement.size();
     auto rotation_derived = [](const double angle) {
       Eigen::Matrix2d R_dot{
           {-std::sin(angle), -std::cos(angle)},
@@ -48,48 +53,52 @@ public:
       };
       return R_dot;
     };
-    auto get_linear_system_entry = [&](const int index) {
-      const auto& from = _state[index];
-      const auto to_index = index < 3 ? index + 1 : 0;
-      const auto& to = _state[to_index];
-      const auto& z = _measurement(index);
+    auto get_linear_system_entry = [&](const AtomicMeasurement& z) {
+      const auto from_idx = z.from_state_idx;
+      const auto to_idx = z.to_state_idx;
+      const auto& from = _state[from_idx].rotation;
+      const auto& to = _state[to_idx].rotation;
       Eigen::Vector4d h_ij = (from.inverse() * to).toRotationMatrix().reshaped();
-      Eigen::Vector4d e = h_ij - Eigen::Rotation2Dd(z).toRotationMatrix().reshaped();
+      Eigen::Vector4d e = h_ij - z.rotation.toRotationMatrix().reshaped();
       Eigen::Vector4d Ji = (rotation_derived(from.angle()).transpose() * to.toRotationMatrix()).reshaped();
       Eigen::Vector4d Jj = (from.inverse().toRotationMatrix() * rotation_derived(to.angle())).reshaped();
-      LinearSystemEntry entry;
+      LinearSystemEntry entry(system_size);
       auto& [H, g, chi_square] = entry;
-      H(index, index) = Ji.transpose() * Ji;
-      H(to_index, to_index) = Jj.transpose() * Jj;
-      H(index, to_index) = Ji.transpose() * Jj;
-      H(to_index, index) = H(index, to_index);
-      g(index) = -Ji.transpose() * e;
-      g(to_index) = -Jj.transpose() * e;
+      H(from_idx, from_idx) = Ji.transpose() * Ji;
+      H(to_idx, to_idx) = Jj.transpose() * Jj;
+      H(from_idx, to_idx) = Ji.transpose() * Jj;
+      H(to_idx, from_idx) = H(from_idx, to_idx);
+      g(from_idx) = -Ji.transpose() * e;
+      g(to_idx) = -Jj.transpose() * e;
       chi_square += e.squaredNorm();
       return entry;
     };
-    auto indices = std::views::iota(0, 4);
-    Eigen::Vector4d dx = Eigen::Vector4d::Zero();
-    while (_iter < _max_iter) {
-      LinearSystemEntry init;
-      const auto& [H, g, chi_square] =
-          std::transform_reduce(indices.cbegin(), indices.cend(), init, std::plus<>(), get_linear_system_entry);
-      dx.tail<3>() = H.bottomRightCorner<3, 3>().ldlt().solve(g.tail<3>());
-      _state.box_plus(dx);
+    int iter = 0;
+    while (iter < _max_iter) {
+      LinearSystemEntry init(system_size);
+      const auto& [H, g, chi_square] = std::transform_reduce(_measurement.cbegin(), _measurement.cend(), init,
+                                                             std::plus<>(), get_linear_system_entry);
+      /* this flops because tail block does not seem assignable */
+      /* dx.tail(system_size - 1) = H.bottomRightCorner(system_size -1, system_size-1).ldlt().solve(g.tail(system_size-1)); */
+      /* so this is a super ugly hack with a copy, because eigen does not support inserts */
+      Eigen::VectorXd dx_tail = H.bottomRightCorner(system_size -1, system_size-1).ldlt().solve(g.tail(system_size-1));
+      Eigen::VectorXd dx_full(dx_tail.size() + 1);
+      dx_full << 0.0, dx_tail;
+      _state.box_plus(dx_full);
 
       if (verbose) {
-        std::cout << "Iter: " << _iter << " and chi_squared = " << chi_square << "\n";
+        std::cout << "Iter: " << iter << " and chi_squared = " << chi_square << "\n";
         std::cout << "g is\n"
                   << g.transpose() << "\nHessian is\n"
-                  << H.bottomRightCorner<3, 3>() << "\nand det is " << H.bottomRightCorner<3, 3>().determinant()
+                  << H.bottomRightCorner(system_size-1, system_size-1) << "\nand det is " << H.bottomRightCorner(system_size-1, system_size-1).determinant()
                   << " \n";
       }
       if (chi_square < _chi_square_thresh) {
         break;
       }
-      _iter++;
+      iter++;
     }
     return _state;
   }
 };
-}; // namespace pigeotto
+}; // namespace pidgeot
