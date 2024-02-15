@@ -26,14 +26,16 @@ int main(int argc, char* argv[]) {
   /* CLI done*/
 
   pidgeot::Measurement measurement{
-      {0, 1, utils::PI / 2},
-      {1, 2, utils::PI / 2},
-      {2, 3, utils::PI / 2},
-      {3, 0, utils::PI / 2}
+      {0, 1, utils::PI / 3},
+      {1, 2, utils::PI / 3},
+      {2, 3, utils::PI / 3},
+      {3, 4, utils::PI / 3},
+      {4, 5, utils::PI / 3},
+      {5, 0, utils::PI / 3}
   };
   std::cout << measurement;
 
-  pidgeot::State initial_state({0, 0, 0, 0.1});
+  pidgeot::State initial_state({0, 0, 0, 1.1, 2.1, 3.1});
   std::cout << "Initial state is " << initial_state << "\n";
 
   utils::Timer timer("LSQ optimization");
