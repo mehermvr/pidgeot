@@ -5,7 +5,6 @@
 #include <Eigen/Geometry>
 #include <algorithm>
 #include <iostream>
-#include <ranges>
 
 namespace rotsync {
 using Perturbation = Eigen::Vector4d;
@@ -28,8 +27,7 @@ public:
   /* convert the so2 state vector to an eiger euler angle vector and return */
   Eigen::Vector4d to_angles() const {
     Eigen::Vector4d angles;
-    std::ranges::transform(_states_so2, angles.begin(),
-                           [](const auto& rot_mat) { return rot_mat.angle(); });
+    std::ranges::transform(_states_so2, angles.begin(), [](const auto& rot_mat) { return rot_mat.angle(); });
     return angles;
   }
 
@@ -37,10 +35,9 @@ public:
 
   /* box plus with the perturbation R4 vector, return a new state*/
   void box_plus(const Perturbation& perturbation) {
-    std::ranges::transform(_states_so2, perturbation, _states_so2.begin(),
-                           [](const Eigen::Rotation2Dd& state, const double pert_angle) {
-                             return exponential_map(pert_angle) * state;
-                           });
+    std::ranges::transform(
+        _states_so2, perturbation, _states_so2.begin(),
+        [](const Eigen::Rotation2Dd& state, const double pert_angle) { return exponential_map(pert_angle) * state; });
   }
   /* const reference to an element of the so2 state vector */
   const Eigen::Rotation2Dd& operator[](const std::size_t idx) const {

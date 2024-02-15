@@ -4,6 +4,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <numeric>
+#include <ranges>
 
 #include "state.h"
 namespace {
