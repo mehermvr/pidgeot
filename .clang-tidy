@@ -18,6 +18,8 @@ Checks: "*,
         -cppcoreguidelines-avoid-magic-numbers,
         -readability-identifier-length,
         -modernize-use-nodiscard,
+        -cert-dcl59-cpp,
+        -modernize-pass-by-value,
 "
 WarningsAsErrors: "*"
 HeaderFilterRegex: "."
