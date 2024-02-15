@@ -5,3 +5,4 @@ BinPackParameters: false
 PackConstructorInitializers: NextLine
 PointerAlignment: Left
 AlwaysBreakTemplateDeclarations: Yes
+AlignArrayOfStructures: Right

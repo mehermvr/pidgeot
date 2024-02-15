@@ -20,6 +20,7 @@ Checks: "*,
         -modernize-use-nodiscard,
         -cert-dcl59-cpp,
         -modernize-pass-by-value,
+        -bugprone-easily-swappable-parameters,
 "
 WarningsAsErrors: "*"
 HeaderFilterRegex: "."
