@@ -1,6 +1,6 @@
 #pragma once
-#include "utils.h"
 #include <Eigen/Geometry>
+#include <pb_utils/numbers.h>
 #include <vector>
 
 namespace pidgeot {
@@ -15,7 +15,7 @@ struct AtomicMeasurement {
 
   friend std::ostream& operator<<(std::ostream& os, const AtomicMeasurement& measurement) {
     os << measurement.from_state_idx << " -> " << measurement.to_state_idx
-       << ", Angle: " << lutils::rad2deg(measurement.rotation.angle()) << "\u00B0";
+       << ", Angle: " << pb_utils::rad2deg(measurement.rotation.angle()) << "\u00B0";
     return os;
   }
 };

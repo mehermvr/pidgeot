@@ -14,6 +14,8 @@
 namespace pidgeot {
 
 struct AtomicState {
+  // index is not really needed currently. can be removed. only other use is in
+  // construction of State from a vector of Atoms
   int index;
   Eigen::Rotation2Dd rotation;
 
@@ -27,7 +29,7 @@ struct AtomicState {
   }
 
   friend std::ostream& operator<<(std::ostream& os, const AtomicState& state_atom) {
-    os << state_atom.index << ": " << lutils::rad2deg(state_atom.rotation.angle()) << "\u00B0";
+    os << state_atom.index << ": " << pb_utils::rad2deg(state_atom.rotation.angle()) << "\u00B0";
     return os;
   }
 };

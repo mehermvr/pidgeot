@@ -1,12 +1,11 @@
-#include <pb_utils/numbers.h>
 #include <pb_utils/timer.h>
-
-#include <CLI/CLI.hpp>
-#include <iostream>
 
 #include "measurement.h"
 #include "solver.h"
 #include "state.h"
+#include <CLI/CLI.hpp>
+#include <iostream>
+#include <numbers>
 
 int main(int argc, char* argv[]) {
   /* CLI start */
@@ -25,20 +24,21 @@ int main(int argc, char* argv[]) {
   CLI11_PARSE(app, argc, argv);
   /* CLI done*/
 
+  using std::numbers::pi;
   pidgeot::Measurement measurement{
-      {0, 1, utils::PI / 3},
-      {1, 2, utils::PI / 3},
-      {2, 3, utils::PI / 3},
-      {3, 4, utils::PI / 3},
-      {4, 5, utils::PI / 3},
-      {5, 0, utils::PI / 3}
+      {0, 1, pi / 3},
+      {1, 2, pi / 3},
+      {2, 3, pi / 3},
+      {3, 4, pi / 3},
+      {4, 5, pi / 3},
+      {5, 0, pi / 3}
   };
   std::cout << measurement;
 
   pidgeot::State initial_state({0, 0, 0, 1.1, 2.1, 3.1});
   std::cout << "Initial state is " << initial_state << "\n";
 
-  utils::Timer timer("LSQ optimization");
+  pb_utils::Timer timer("LSQ optimization");
   pidgeot::Solver solver(max_iter, initial_state, measurement);
   auto final_state = solver.solve(verbose);
 

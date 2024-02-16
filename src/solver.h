@@ -15,8 +15,7 @@ struct LinearSystemEntry {
   Eigen::VectorXd g;
   double chi_square{0.0};
 
-  LinearSystemEntry(const size_t size): H(Eigen::MatrixXd::Zero(size, size)), g(Eigen::VectorXd::Zero(size)){
-  }
+  LinearSystemEntry(const size_t size) : H(Eigen::MatrixXd::Zero(size, size)), g(Eigen::VectorXd::Zero(size)) {}
 
   LinearSystemEntry& operator+=(const LinearSystemEntry& other) {
     this->H += other.H;
@@ -79,19 +78,19 @@ public:
       const auto& [H, g, chi_square] = std::transform_reduce(_measurement.cbegin(), _measurement.cend(), init,
                                                              std::plus<>(), get_linear_system_entry);
       /* this flops because tail block does not seem assignable */
-      /* dx.tail(system_size - 1) = H.bottomRightCorner(system_size -1, system_size-1).ldlt().solve(g.tail(system_size-1)); */
+      /* dx.tail(system_size - 1) = H.bottomRightCorner(system_size -1,
+       * system_size-1).ldlt().solve(g.tail(system_size-1)); */
       /* so this is a super ugly hack with a copy, because eigen does not support inserts */
-      Eigen::VectorXd dx_tail = H.bottomRightCorner(system_size -1, system_size-1).ldlt().solve(g.tail(system_size-1));
-      Eigen::VectorXd dx_full(dx_tail.size() + 1);
-      dx_full << 0.0, dx_tail;
-      _state.box_plus(dx_full);
+      Eigen::VectorXd dx(system_size);
+      dx << 0.0, H.bottomRightCorner(system_size - 1, system_size - 1).ldlt().solve(g.tail(system_size - 1));
+      _state.box_plus(dx);
 
       if (verbose) {
         std::cout << "Iter: " << iter << " and chi_squared = " << chi_square << "\n";
         std::cout << "g is\n"
                   << g.transpose() << "\nHessian is\n"
-                  << H.bottomRightCorner(system_size-1, system_size-1) << "\nand det is " << H.bottomRightCorner(system_size-1, system_size-1).determinant()
-                  << " \n";
+                  << H.bottomRightCorner(system_size - 1, system_size - 1) << "\nand det is "
+                  << H.bottomRightCorner(system_size - 1, system_size - 1).determinant() << " \n";
       }
       if (chi_square < _chi_square_thresh) {
         break;
