@@ -6,8 +6,8 @@
 #include <Eigen/Geometry>
 #include <algorithm>
 #include <iostream>
+#include <numeric>
 #include <ranges>
-#include <tuple>
 #include <unordered_map>
 #include <utility>
 
@@ -22,10 +22,15 @@ struct AtomicState {
   AtomicState(const int idx, const double angle) : index(idx), rotation(Eigen::Rotation2Dd(angle)) {}
   AtomicState(const int idx, const Eigen::Rotation2Dd rot) : index(idx), rotation(rot) {}
 
+  /* overloading for right hand side multiplication */
+  friend AtomicState operator*(AtomicState lhs, const Eigen::Rotation2Dd& transform) {
+    lhs.rotation = lhs.rotation * transform;
+    return lhs;
+  }
   /* overloading for left hand side multiplication */
-  AtomicState& operator*=(const Eigen::Rotation2Dd& transform) {
-    this->rotation = transform * this->rotation;
-    return *this;
+  friend AtomicState operator*(const Eigen::Rotation2Dd& transform, AtomicState rhs) {
+    rhs.rotation = transform * rhs.rotation;
+    return rhs;
   }
 
   friend std::ostream& operator<<(std::ostream& os, const AtomicState& state_atom) {
@@ -42,13 +47,13 @@ public:
   /* construct states of length a certain size with default angle 0.0 */
   explicit State(int size) {
     for (int idx : std::views::iota(0, size)) {
-      _elements.emplace(std::piecewise_construct, std::forward_as_tuple(idx), std::forward_as_tuple(idx, 0.0));
+      _elements.emplace(idx, AtomicState{idx, 0.0});
     }
   }
 
   explicit State(const std::vector<double>& angles) {
     for (const auto& [idx, angle] : std::views::enumerate(angles)) {
-      _elements.emplace(std::piecewise_construct, std::forward_as_tuple(idx), std::forward_as_tuple(idx, angle));
+      _elements.emplace(idx, AtomicState{std::saturate_cast<int>(idx), angle});
     }
   }
 
@@ -72,14 +77,11 @@ public:
     requires std::ranges::input_range<T>
   void box_plus(const T& perturbation) {
     assert(perturbation.size() == _elements.size() && "Size of perturbation must be same as state");
+
     std::ranges::for_each(std::views::enumerate(perturbation), [this](const auto& enum_elem) {
       const auto& [idx, pert_angle] = enum_elem;
-      auto pert_rotation = Eigen::Rotation2Dd(pert_angle); // exponential map
-      /* this is fine */
-      /* std::cout << _elements.at(idx); */
-      /* this is not fine */
-      /* std::cout << _elements[idx]; */
-      _elements.at(idx) *= pert_rotation; // left multiplication
+      auto pert_rotation = Eigen::Rotation2Dd(pert_angle);   // exponential map
+      _elements.at(idx) = pert_rotation * _elements.at(idx); // left multiplication
     });
   }
 

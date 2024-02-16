@@ -14,8 +14,7 @@ struct LinearSystemEntry {
   Eigen::VectorXd g;
   double chi_square{0.0};
 
-  explicit LinearSystemEntry(const size_t size)
-      : H(Eigen::MatrixXd::Zero(size, size)), g(Eigen::VectorXd::Zero(size)) {}
+  explicit LinearSystemEntry(const long size) : H(Eigen::MatrixXd::Zero(size, size)), g(Eigen::VectorXd::Zero(size)) {}
 
   LinearSystemEntry& operator+=(const LinearSystemEntry& other) {
     this->H += other.H;
@@ -44,7 +43,9 @@ public:
       : _state(initial_state), _measurement(measurement), _max_iter(max_iter), _chi_square_thresh(chi_square_thresh) {}
 
   auto solve(bool verbose = false) {
-    const auto system_size = _measurement.size();
+    const long system_size = std::saturate_cast<long>(_measurement.size());
+
+    // lambda
     auto rotation_derived = [](const double angle) {
       Eigen::Matrix2d R_dot{
           {-std::sin(angle), -std::cos(angle)},
@@ -52,6 +53,7 @@ public:
       };
       return R_dot;
     };
+    // lambda
     auto get_linear_system_entry = [&](const AtomicMeasurement& z) {
       const auto from_idx = z.from_state_idx;
       const auto to_idx = z.to_state_idx;
@@ -72,25 +74,23 @@ public:
       chi_square += e.squaredNorm();
       return entry;
     };
+
+    Eigen::VectorXd dx = Eigen::VectorXd::Zero(system_size);
     int iter = 0;
     while (iter < _max_iter) {
       LinearSystemEntry init(system_size);
       const auto& [H, g, chi_square] = std::transform_reduce(_measurement.cbegin(), _measurement.cend(), init,
                                                              std::plus<>(), get_linear_system_entry);
-      /* this flops because tail block does not seem assignable */
-      /* dx.tail(system_size - 1) = H.bottomRightCorner(system_size -1,
-       * system_size-1).ldlt().solve(g.tail(system_size-1)); */
-      /* so this is a super ugly hack with a copy, because eigen does not support inserts */
-      Eigen::VectorXd dx(system_size);
-      dx << 0.0, H.bottomRightCorner(system_size - 1, system_size - 1).ldlt().solve(g.tail(system_size - 1));
+      const auto& H_block = H.bottomRightCorner(system_size - 1, system_size - 1);
+      const auto& g_block = g.tail(system_size - 1);
+      dx.tail(system_size - 1) = H_block.ldlt().solve(g_block);
       _state.box_plus(dx);
 
       if (verbose) {
         std::cout << "Iter: " << iter << " and chi_squared = " << chi_square << "\n";
         std::cout << "g is\n"
                   << g.transpose() << "\nHessian is\n"
-                  << H.bottomRightCorner(system_size - 1, system_size - 1) << "\nand det is "
-                  << H.bottomRightCorner(system_size - 1, system_size - 1).determinant() << " \n";
+                  << H_block << "\nand det is " << H_block.determinant() << " \n";
       }
       if (chi_square < _chi_square_thresh) {
         break;

@@ -9,7 +9,7 @@
 
 int main(int argc, char* argv[]) {
   /* CLI start */
-  CLI::App app{"Least square kacken"};
+  CLI::App app{"Pidgeot"};
   int max_iter = 1000;
   app.add_option("max_iter", max_iter, "Max iterations of Least Squares");
   /* bool use_analytic_jacobian = true; */
