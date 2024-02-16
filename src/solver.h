@@ -4,7 +4,6 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <numeric>
-#include <ranges>
 
 #include "measurement.h"
 #include "state.h"
@@ -15,7 +14,8 @@ struct LinearSystemEntry {
   Eigen::VectorXd g;
   double chi_square{0.0};
 
-  LinearSystemEntry(const size_t size) : H(Eigen::MatrixXd::Zero(size, size)), g(Eigen::VectorXd::Zero(size)) {}
+  explicit LinearSystemEntry(const size_t size)
+      : H(Eigen::MatrixXd::Zero(size, size)), g(Eigen::VectorXd::Zero(size)) {}
 
   LinearSystemEntry& operator+=(const LinearSystemEntry& other) {
     this->H += other.H;
