@@ -2,17 +2,22 @@
 # dependencies. see kiss icp for reference. but i want my own stuff.
 
 # in the end it ended up pretty much the same as the kiss icp one. surprise.
-function(find_dep PACKAGE_NAME TARGET_NAME FETCH_CMAKE_FILE)
-  string(TOUPPER ${PACKAGE_NAME} PACKAGE_NAME_UP)
-  set(USE_FROM_SYSTEM_OPTION "USE_SYSTEM_${PACKAGE_NAME_UP}")
-  if(${${USE_FROM_SYSTEM_OPTION}})
-    message(STATUS "Searching for ${PACKAGE_NAME} in system. ")
-    find_package(${PACKAGE_NAME} QUIET)
-  endif()
+function(
+  find_dep
+  PACKAGE_NAME
+  TARGET_NAME
+  FETCH_CMAKE_FILE)
   if(NOT TARGET ${TARGET_NAME})
     message(STATUS "${PACKAGE_NAME}'s target: ${TARGET_NAME} not found.")
-    message(STATUS "Fetching it using FetchContent (${FETCH_CMAKE_FILE})")
-    include(${FETCH_CMAKE_FILE})
+    string(TOUPPER ${PACKAGE_NAME} PACKAGE_NAME_UP)
+    set(USE_FROM_SYSTEM_OPTION "USE_SYSTEM_${PACKAGE_NAME_UP}")
+    if(${${USE_FROM_SYSTEM_OPTION}})
+      message(STATUS "Searching for ${PACKAGE_NAME} in system. ")
+      find_package(${PACKAGE_NAME} QUIET)
+    else()
+      message(STATUS "Fetching it using FetchContent (${FETCH_CMAKE_FILE})")
+      include(${FETCH_CMAKE_FILE})
+    endif()
   endif()
 endfunction()
 

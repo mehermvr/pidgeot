@@ -1,7 +1,7 @@
 .PHONY: build
 build:
 	cmake -S . -B build
-	cmake --build build -j $(nproc)
+	cmake --build build -j $(shell nproc)
 
 .PHONY: clean
 clean:

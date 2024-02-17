@@ -25,4 +25,4 @@ Checks: "*,
 WarningsAsErrors: "*"
 HeaderFilterRegex: "."
 FormatStyle: "file"
-# copied from https://github.com/cpp-best-practices/cmake_template/blob/main/.clang-tidy
+# modified from https://github.com/cpp-best-practices/cmake_template/blob/main/.clang-tidy

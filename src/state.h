@@ -1,12 +1,10 @@
 #pragma once
 #include <pb_utils/numbers.h>
 
-#include "utils.h"
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <algorithm>
 #include <iostream>
-#include <numeric>
 #include <ranges>
 #include <unordered_map>
 #include <utility>
@@ -53,7 +51,7 @@ public:
 
   explicit State(const std::vector<double>& angles) {
     for (const auto& [idx, angle] : std::views::enumerate(angles)) {
-      _elements.emplace(idx, AtomicState{std::saturate_cast<int>(idx), angle});
+      _elements.emplace(idx, AtomicState{pb_utils::saturate_cast<int>(idx), angle});
     }
   }
 

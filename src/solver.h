@@ -7,6 +7,7 @@
 
 #include "measurement.h"
 #include "state.h"
+#include <pb_utils/numbers.h>
 
 namespace {
 struct LinearSystemEntry {
@@ -43,7 +44,7 @@ public:
       : _state(initial_state), _measurement(measurement), _max_iter(max_iter), _chi_square_thresh(chi_square_thresh) {}
 
   auto solve(bool verbose = false) {
-    const long system_size = std::saturate_cast<long>(_measurement.size());
+    const long system_size = pb_utils::saturate_cast<long>(_measurement.size());
 
     // lambda
     auto rotation_derived = [](const double angle) {
