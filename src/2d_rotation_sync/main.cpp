@@ -1,8 +1,8 @@
 #include <pb_utils/timer.h>
 
-#include "measurement.h"
-#include "solver.h"
-#include "state.h"
+#include "pidgeot/measurement.h"
+#include "pidgeot/solver.h"
+#include "pidgeot/state.h"
 #include <CLI/CLI.hpp>
 #include <iostream>
 #include <numbers>
