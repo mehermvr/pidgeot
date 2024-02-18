@@ -1,2 +1,0 @@
-
-namespace lutils {} // namespace lutils

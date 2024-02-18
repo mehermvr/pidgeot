@@ -1,5 +1,4 @@
 #include "measurement.h"
-#include "utils.h"
 
 namespace pidgeot {
 // Overload << for Measurement
