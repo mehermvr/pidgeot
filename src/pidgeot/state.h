@@ -44,22 +44,23 @@ private:
 public:
   /* construct states of length a certain size with default angle 0.0 */
   explicit State(int size) {
-    for (int idx : std::views::iota(0, size)) {
+    std::ranges::for_each(std::views::iota(0, size), [this](const int idx) {
       _elements.emplace(idx, AtomicState{idx, 0.0});
-    }
+    });
   }
 
   explicit State(const std::vector<double>& angles) {
-    for (const auto& [idx, angle] : std::views::enumerate(angles)) {
+    std::ranges::for_each(std::views::enumerate(angles), [this](const auto& enum_elem) {
+      const auto& [idx, angle] = enum_elem;
       _elements.emplace(idx, AtomicState{pb_utils::saturate_cast<int>(idx), angle});
-    }
+    });
   }
 
   explicit State(const std::vector<AtomicState>& state_atoms) {
-    for (const auto& state_atom : state_atoms) {
-      _elements.emplace(state_atom.index, state_atom);
-    }
+    std::ranges::for_each(state_atoms,
+                          [this](const auto& state_atom) { _elements.emplace(state_atom.index, state_atom); });
   }
+
   /* thin wrapper around the map */
   auto begin() { return _elements.begin(); }
   auto begin() const { return _elements.cbegin(); }
