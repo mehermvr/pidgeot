@@ -8,6 +8,7 @@
 #include "measurement.h"
 #include "state.h"
 #include <pb_utils/numbers.h>
+#include <pb_utils/timer.h>
 
 namespace {
 struct LinearSystemEntry {
@@ -38,13 +39,22 @@ private:
   State _state;
   Measurement _measurement;
   double _chi_square_thresh;
+  double _dx_sqnorm_thresh;
 
 public:
-  Solver(int max_iter, const State& initial_state, const Measurement& measurement, double chi_square_thresh = 1e-8)
-      : _state(initial_state), _measurement(measurement), _max_iter(max_iter), _chi_square_thresh(chi_square_thresh) {}
+  Solver(int max_iter,
+         const State& initial_state,
+         const Measurement& measurement,
+         double chi_square_thresh = 1e-8,
+         double dx_sqnorm_thresh = 1e-8)
+      : _state(initial_state),
+        _measurement(measurement),
+        _max_iter(max_iter),
+        _chi_square_thresh(chi_square_thresh),
+        _dx_sqnorm_thresh(dx_sqnorm_thresh) {}
 
   auto solve(bool verbose = false) {
-    const long system_size = pb_utils::saturate_cast<long>(_measurement.size());
+    const long system_size = pb_utils::saturate_cast<long>(_state.size());
 
     // lambda
     auto rotation_derived = [](const double angle) {
@@ -76,9 +86,11 @@ public:
       return entry;
     };
 
+    pb_utils::Timer lsq_timer("LSQ Optimization");
     Eigen::VectorXd dx = Eigen::VectorXd::Zero(system_size);
     int iter = 0;
     while (iter < _max_iter) {
+      lsq_timer.tick();
       LinearSystemEntry init(system_size);
       const auto& [H, g, chi_square] = std::transform_reduce(_measurement.cbegin(), _measurement.cend(), init,
                                                              std::plus<>(), get_linear_system_entry);
@@ -86,14 +98,16 @@ public:
       const auto& g_block = g.tail(system_size - 1);
       dx.tail(system_size - 1) = H_block.ldlt().solve(g_block);
       _state.box_plus(dx);
+      auto dx_sqnorm = dx.squaredNorm();
 
+      std::cout << "Iter: " << iter << "/" << _max_iter - 1 << " and chi_squared = " << chi_square
+                << " and delta_x (sq. norm) = " << dx_sqnorm << ", took " << lsq_timer.tock() << "s\n";
       if (verbose) {
-        std::cout << "Iter: " << iter << " and chi_squared = " << chi_square << "\n";
         std::cout << "g is\n"
                   << g.transpose() << "\nHessian is\n"
                   << H_block << "\nand det is " << H_block.determinant() << " \n";
       }
-      if (chi_square < _chi_square_thresh) {
+      if (chi_square < _chi_square_thresh || dx_sqnorm < _dx_sqnorm_thresh) {
         break;
       }
       iter++;

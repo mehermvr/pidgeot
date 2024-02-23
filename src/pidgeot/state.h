@@ -32,7 +32,7 @@ struct AtomicState {
   }
 
   friend std::ostream& operator<<(std::ostream& os, const AtomicState& state_atom) {
-    os << state_atom.index << ": " << pb_utils::rad2deg(state_atom.rotation.angle()) << "\u00B0";
+    os << state_atom.index << ": " << state_atom.rotation.smallestPositiveAngle() << "\u00B0";
     return os;
   }
 };
@@ -66,6 +66,7 @@ public:
   auto begin() const { return _elements.cbegin(); }
   auto end() { return _elements.end(); }
   auto end() const { return _elements.cend(); }
+  auto size() const { return _elements.size(); }
 
   auto& operator[](const int idx) { return _elements.at(idx); }
   const auto& operator[](const int idx) const { return _elements.at(idx); }

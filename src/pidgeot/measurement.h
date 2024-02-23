@@ -15,7 +15,7 @@ struct AtomicMeasurement {
 
   friend std::ostream& operator<<(std::ostream& os, const AtomicMeasurement& measurement) {
     os << measurement.from_state_idx << " -> " << measurement.to_state_idx
-       << ", Angle: " << pb_utils::rad2deg(measurement.rotation.angle()) << "\u00B0";
+       << ", Angle: " << measurement.rotation.angle() << "\u00B0";
     return os;
   }
 };
