@@ -1,25 +1,26 @@
 #pragma once
 
+#include "measurement.h"
+#include "state.h"
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <Eigen/IterativeLinearSolvers>
+#include <Eigen/Sparse>
+#include <Eigen/SparseCholesky>
 #include <numeric>
-
-#include "measurement.h"
-#include "state.h"
 #include <pb_utils/numbers.h>
 #include <pb_utils/timer.h>
 
 namespace {
 struct LinearSystemEntry {
-  Eigen::MatrixXd H;
+  /* Eigen::MatrixXd H; */
   Eigen::VectorXd g;
   double chi_square{0.0};
 
-  explicit LinearSystemEntry(const long size) : H(Eigen::MatrixXd::Zero(size, size)), g(Eigen::VectorXd::Zero(size)) {}
+  explicit LinearSystemEntry(const long size) : g(Eigen::VectorXd::Zero(size)) {}
 
   LinearSystemEntry& operator+=(const LinearSystemEntry& other) {
-    this->H += other.H;
     this->g += other.g;
     this->chi_square += other.chi_square;
     return *this;
@@ -46,7 +47,7 @@ public:
          const State& initial_state,
          const Measurement& measurement,
          double chi_square_thresh = 1e-8,
-         double dx_sqnorm_thresh = 1e-8)
+         double dx_sqnorm_thresh = 1e-16)
       : _state(initial_state),
         _measurement(measurement),
         _max_iter(max_iter),
@@ -55,6 +56,7 @@ public:
 
   auto solve(bool verbose = false) {
     const long system_size = pb_utils::saturate_cast<long>(_state.size());
+    const long measurement_size = pb_utils::saturate_cast<long>(_measurement.size());
 
     // lambda
     auto rotation_derived = [](const double angle) {
@@ -64,6 +66,9 @@ public:
       };
       return R_dot;
     };
+    // need to catch this by reference
+    std::vector<Eigen::Triplet<double>> hessian_triplets;
+    hessian_triplets.reserve(measurement_size * 4);
     // lambda
     auto get_linear_system_entry = [&](const AtomicMeasurement& z) {
       const auto from_idx = z.from_state_idx;
@@ -75,11 +80,11 @@ public:
       Eigen::Vector4d Ji = (rotation_derived(from.angle()).transpose() * to.toRotationMatrix()).reshaped();
       Eigen::Vector4d Jj = (from.inverse().toRotationMatrix() * rotation_derived(to.angle())).reshaped();
       LinearSystemEntry entry(system_size);
-      auto& [H, g, chi_square] = entry;
-      H(from_idx, from_idx) = Ji.transpose() * Ji;
-      H(to_idx, to_idx) = Jj.transpose() * Jj;
-      H(from_idx, to_idx) = Ji.transpose() * Jj;
-      H(to_idx, from_idx) = H(from_idx, to_idx);
+      auto& [g, chi_square] = entry;
+      hessian_triplets.emplace_back(from_idx, from_idx, Ji.transpose() * Ji);
+      hessian_triplets.emplace_back(to_idx, to_idx, Jj.transpose() * Jj);
+      hessian_triplets.emplace_back(from_idx, to_idx, Ji.transpose() * Jj);
+      hessian_triplets.emplace_back(to_idx, from_idx, Ji.transpose() * Jj);
       g(from_idx) = -Ji.transpose() * e;
       g(to_idx) = -Jj.transpose() * e;
       chi_square += e.squaredNorm();
@@ -88,15 +93,31 @@ public:
 
     pb_utils::Timer lsq_timer("LSQ Optimization");
     Eigen::VectorXd dx = Eigen::VectorXd::Zero(system_size);
+    Eigen::SparseMatrix<double> H(system_size, system_size);
+    Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> sp_solver;
+    /* Eigen::ConjugateGradient<Eigen::SparseMatrix<double>> sp_solver; */
+    bool pattern_analyzed = false;
     int iter = 0;
     while (iter < _max_iter) {
       lsq_timer.tick();
       LinearSystemEntry init(system_size);
-      const auto& [H, g, chi_square] = std::transform_reduce(_measurement.cbegin(), _measurement.cend(), init,
-                                                             std::plus<>(), get_linear_system_entry);
+      // clear the elements, but keep the reserved space
+      hessian_triplets.clear();
+      /* same for the eigen sparse matrix */
+      H.setZero();
+      /* do the fishy lambda reduce */
+      const auto& [g, chi_square] = std::transform_reduce(_measurement.cbegin(), _measurement.cend(), init,
+                                                          std::plus<>(), get_linear_system_entry);
+      H.setFromTriplets(hessian_triplets.begin(), hessian_triplets.end());
       const auto& H_block = H.bottomRightCorner(system_size - 1, system_size - 1);
       const auto& g_block = g.tail(system_size - 1);
-      dx.tail(system_size - 1) = H_block.ldlt().solve(g_block);
+      if (!pattern_analyzed) {
+        /* split the compute step since our sparsity structure remains the same accross iterations */
+        sp_solver.analyzePattern(H_block);
+        pattern_analyzed = true;
+      }
+      sp_solver.factorize(H_block);
+      dx.tail(system_size - 1) = sp_solver.solve(g_block);
       _state.box_plus(dx);
       auto dx_sqnorm = dx.squaredNorm();
 
@@ -104,8 +125,9 @@ public:
                 << " and delta_x (sq. norm) = " << dx_sqnorm << ", took " << lsq_timer.tock() << "s\n";
       if (verbose) {
         std::cout << "g is\n"
-                  << g.transpose() << "\nHessian is\n"
-                  << H_block << "\nand det is " << H_block.determinant() << " \n";
+                  << g.transpose()
+                  /* << "\nHessian is\n"  << H_block << "\nand det is " << H_block.determinant()  */
+                  << " \n";
       }
       if (chi_square < _chi_square_thresh || dx_sqnorm < _dx_sqnorm_thresh) {
         break;
