@@ -17,8 +17,10 @@ namespace pidgeot {
 struct LinearSystem {
   /* Eigen::MatrixXd H; */
   std::vector<Eigen::Triplet<double>> hessian_triplets;
-  Eigen::SparseMatrix<double> J;
+  /* hessian, but more like J.T * J, ignores the second order terms. if the error at optimum is 0, then H = J.T * J and
+   * you get quadratic convergence with GN. see madsen */
   Eigen::SparseMatrix<double> H;
+  /* the gradient. the system is (J.T*J)h = -g */
   Eigen::VectorXd g;
   double chi_square{0.0};
   bool sp_pattern_analyzed{false};
@@ -34,7 +36,6 @@ struct LinearSystem {
   /* clears all the entries to allow reusing the allocated memory */
   void clear() {
     hessian_triplets.clear();
-    J.setZero();
     H.setZero();
     g.setZero();
     chi_square = 0.0;
@@ -44,6 +45,7 @@ struct LinearSystem {
 
   /* calculate the gauss newton step */
   auto solve() {
+    /* the system is (H:= J.T*J) * dx = -g */
     const auto system_size = H.outerSize();
     Eigen::VectorXd dx = Eigen::VectorXd::Zero(system_size);
     /* TODO: this is because we fix the first state. there has to be a better way */
@@ -55,7 +57,7 @@ struct LinearSystem {
       sp_pattern_analyzed = true;
     }
     sp_solver.factorize(H_block);
-    dx.tail(system_size - 1) = sp_solver.solve(g_block);
+    dx.tail(system_size - 1) = sp_solver.solve(-g_block);
     return dx;
   }
 };
@@ -139,8 +141,9 @@ public:
       linear_system.hessian_triplets.emplace_back(to_idx, to_idx, Jj.transpose() * Jj);
       linear_system.hessian_triplets.emplace_back(from_idx, to_idx, Ji.transpose() * Jj);
       linear_system.hessian_triplets.emplace_back(to_idx, from_idx, Ji.transpose() * Jj);
-      linear_system.g(from_idx) += -Ji.transpose() * e;
-      linear_system.g(to_idx) += -Jj.transpose() * e;
+      /* g is the gradient, not the rhs in the normal equations */
+      linear_system.g(from_idx) += Ji.transpose() * e;
+      linear_system.g(to_idx) += Jj.transpose() * e;
       linear_system.chi_square += e.squaredNorm();
     };
     auto rebuild_linear_system_mats = [&]() {
@@ -153,7 +156,7 @@ public:
     auto calculate_alpha_sd = [&]() {
       const auto& g = linear_system.g;
       const auto& H = linear_system.H;
-      double alpha = g.squaredNorm() / (g.transpose() * H * g).squaredNorm();
+      double alpha = g.squaredNorm() / (g.transpose() * H * g);
       return alpha;
     };
     auto steepest_descent_step = [&]() {
@@ -209,20 +212,20 @@ public:
     auto calculate_gain_ratio = [&](const State& x_new, const int dl_case, const double alpha, const double beta) {
       double linear_model_gain{};
       const double F = 0.5 * linear_system.chi_square;
-      std::cout << "current F is " << F << "\n";
+      /* std::cout << "current F is " << F << "\n"; */
       switch (dl_case) {
       case 1:
-        std::cout << "dl case 1: GN step\n";
+        /* std::cout << "dl case 1: GN step\n"; */
         // F(x), where F(x) = 0.5 f(x).T * f(x). for us f(x) is e(x). and e.T * e is stored in chi_square
         linear_model_gain = F;
         break;
       case 2:
-        std::cout << "dl case 2: trust radius length in gradient direction\n";
+        /* std::cout << "dl case 2: trust radius length in gradient direction\n"; */
         // alpha * linear_system.g is just sd_step. can capture that and reduce some flops
         linear_model_gain = _trust_radius * (2 * (alpha * linear_system.g).norm() - _trust_radius) / (2 * alpha);
         break;
       case 3:
-        std::cout << "dl case 3: trust radius length in between gradient and gauss newton direction\n";
+        /* std::cout << "dl case 3: trust radius length in between gradient and gauss newton direction\n"; */
         linear_model_gain =
             0.5 * alpha * (1 - beta) * (1 - beta) * linear_system.g.squaredNorm() + beta * (2 - beta) * F;
         break;
@@ -231,7 +234,7 @@ public:
       }
       // linear model gain is calculated
       const double F_new = calculate_F(x_new);
-      std::cout << "new F is " << F_new << "\n";
+      /* std::cout << "new F is " << F_new << "\n"; */
       const double non_linear_model_gain = F - F_new;
       return non_linear_model_gain / linear_model_gain;
     };
@@ -259,8 +262,8 @@ public:
         break;
       }
       const auto& [dx_sd, alpha] = steepest_descent_step();
-      const auto& [cdx_dl, dl_case, beta] = dogleg_step(dx_sd, dx_gn);
-      auto dx_dl = dx_sd;
+      const auto& [dx_dl, dl_case, beta] = dogleg_step(dx_sd, dx_gn);
+      /* auto dx_dl = dx_sd; */
       const auto dx_dl_norm = dx_dl.norm();
       if (dx_dl_norm <= _eps_2) {
         /* termination 2 satisfied */
@@ -273,10 +276,10 @@ public:
       State x_new = _x;
       x_new.box_plus(dx_dl);
       const double gain_ratio = calculate_gain_ratio(x_new, dl_case, alpha, beta);
-      /* if (gain_ratio > 0) { */
-      _x = x_new;
-      /* leave the termination criteria to the next iteration when the system is solved */
-      /* } */
+      if (gain_ratio > 0) {
+        _x = x_new;
+        /* leave the termination criteria to the next iteration when the system is solved */
+      }
       if (gain_ratio > 0.75) {
         _trust_radius = std::max(_trust_radius, 3 * dx_dl_norm);
       } else if (gain_ratio < 0.25) {

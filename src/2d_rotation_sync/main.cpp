@@ -102,5 +102,6 @@ int main(int argc, char* argv[]) {
   });
   std::cout << "mean abs radian error " << error / state_length << " = " << pb_utils::rad2deg(error / state_length)
             << " deg\n";
+  std::cout << "Final state is " << final_state;
   return 0;
 }
