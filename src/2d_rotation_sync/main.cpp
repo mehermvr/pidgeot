@@ -4,6 +4,7 @@
 #include <pb_utils/timer.h>
 
 #include "pidgeot/dogLegSolver.h"
+#include "pidgeot/gaussNewtonSolver.h"
 #include "pidgeot/measurement.h"
 #include "pidgeot/state.h"
 #include <CLI/CLI.hpp>
