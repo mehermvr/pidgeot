@@ -34,7 +34,7 @@ struct LinearSystemEntry {
 } // namespace
 
 namespace pidgeot {
-class Solver {
+class GaussNewtonSolver {
 private:
   int _max_iter;
   State _state;
@@ -43,11 +43,11 @@ private:
   double _dx_sqnorm_thresh;
 
 public:
-  Solver(int max_iter,
-         const State& initial_state,
-         const Measurement& measurement,
-         double chi_square_thresh = 1e-8,
-         double dx_sqnorm_thresh = 1e-16)
+  GaussNewtonSolver(int max_iter,
+                    const State& initial_state,
+                    const Measurement& measurement,
+                    double chi_square_thresh = 1e-8,
+                    double dx_sqnorm_thresh = 1e-16)
       : _state(initial_state),
         _measurement(measurement),
         _max_iter(max_iter),
@@ -66,7 +66,8 @@ public:
       };
       return R_dot;
     };
-    // need to catch this by reference
+    // need to catch this by reference before the lambda
+    // TODO: need to improve this structure
     std::vector<Eigen::Triplet<double>> hessian_triplets;
     hessian_triplets.reserve(measurement_size * 4);
     // lambda
@@ -96,7 +97,7 @@ public:
     Eigen::SparseMatrix<double> H(system_size, system_size);
     Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> sp_solver;
     /* Eigen::ConjugateGradient<Eigen::SparseMatrix<double>> sp_solver; */
-    bool pattern_analyzed = false;
+    bool sp_pattern_analyzed = false;
     int iter = 0;
     while (iter < _max_iter) {
       lsq_timer.tick();
@@ -111,10 +112,10 @@ public:
       H.setFromTriplets(hessian_triplets.begin(), hessian_triplets.end());
       const auto& H_block = H.bottomRightCorner(system_size - 1, system_size - 1);
       const auto& g_block = g.tail(system_size - 1);
-      if (!pattern_analyzed) {
+      if (!sp_pattern_analyzed) {
         /* split the compute step since our sparsity structure remains the same accross iterations */
         sp_solver.analyzePattern(H_block);
-        pattern_analyzed = true;
+        sp_pattern_analyzed = true;
       }
       sp_solver.factorize(H_block);
       dx.tail(system_size - 1) = sp_solver.solve(g_block);
@@ -124,10 +125,7 @@ public:
       std::cout << "Iter: " << iter << "/" << _max_iter - 1 << " and chi_squared = " << chi_square
                 << " and delta_x (sq. norm) = " << dx_sqnorm << ", took " << lsq_timer.tock() << "s\n";
       if (verbose) {
-        std::cout << "g is\n"
-                  << g.transpose()
-                  /* << "\nHessian is\n"  << H_block << "\nand det is " << H_block.determinant()  */
-                  << " \n";
+        std::cout << "g is\n" << g.transpose() << " \n";
       }
       if (chi_square < _chi_square_thresh || dx_sqnorm < _dx_sqnorm_thresh) {
         break;

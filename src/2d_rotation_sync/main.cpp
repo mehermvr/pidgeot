@@ -1,11 +1,10 @@
 #include <algorithm>
 #include <array>
-#include <cmath>
 #include <pb_utils/numbers.h>
 #include <pb_utils/timer.h>
 
+#include "pidgeot/dogLegSolver.h"
 #include "pidgeot/measurement.h"
-#include "pidgeot/solver.h"
 #include "pidgeot/state.h"
 #include <CLI/CLI.hpp>
 #include <iostream>
@@ -22,15 +21,11 @@ int main(int argc, char* argv[]) {
   app.add_option("--state-length,-l", state_length, "Length of the state vector");
   int max_loop_closures = 10;
   app.add_option("--max_lc,-c", max_loop_closures, "Maximum number of loop closures");
-  /* bool use_analytic_jacobian = true; */
-  /* app.add_flag("--analytic,!--numeric", use_analytic_jacobian, */
-  /* "Use analytic jacobian or numeric."); */
+  /* unused. but keep for later */
+  bool use_analytic_jacobian = true;
+  app.add_flag("--analytic,!--numeric", use_analytic_jacobian, "Use analytic jacobian or numeric.");
   bool verbose = false;
   app.add_flag("--verbose,-v", verbose, "Additional debug info");
-  /* random initial guess that is somewhat close */
-  /* std::vector<double> initial_state_vector{0, utils::PI / 1.4, 0.8 * utils::PI, 2 * utils::PI}; */
-  /* app.add_option("--initial_guess", initial_state_vector, "Initial state vector. seperate with spaces")->expected(4);
-   */
   CLI11_PARSE(app, argc, argv);
   /* CLI done*/
 
@@ -38,7 +33,7 @@ int main(int argc, char* argv[]) {
 
   /* generate a random length of states */
   std::random_device random_device;
-  std::mt19937 mt_engine(random_device());
+  std::mt19937 mt_engine{random_device()};
   std::uniform_real_distribution<double> angle_range{0, 2 * pi};
 
   std::vector<double> gt_state_angles(state_length);
@@ -90,7 +85,7 @@ int main(int argc, char* argv[]) {
   pidgeot::State initial_state(state_length);
   std::cout << "Initial state length is " << initial_state.size() << "\n";
 
-  pidgeot::Solver solver(max_iter, initial_state, measurement);
+  pidgeot::DogLegSolver solver(max_iter, initial_state, measurement);
   auto final_state = solver.solve(verbose);
 
   double error = 0;
@@ -100,11 +95,6 @@ int main(int argc, char* argv[]) {
     const auto diff = pred_angle - gt_angle;
     error += abs(diff);
   });
-  /* for (const auto angle : gt_state_angles) { */
-  /* std::cout << angle << " "; */
-  /* } */
-  /* std::cout << "\n"; */
-  /* std::cout << final_state << "\n"; */
   std::cout << "mean abs radian error " << error / state_length << " = " << pb_utils::rad2deg(error / state_length)
             << " deg\n";
   return 0;
