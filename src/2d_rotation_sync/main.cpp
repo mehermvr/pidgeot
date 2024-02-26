@@ -15,6 +15,8 @@ int main(int argc, char* argv[]) {
   pb_utils::Timer timer("Program execution");
   /* CLI start */
   CLI::App app{"Pidgeot"};
+  int seed = 42;
+  app.add_option("--seed,-s", seed, "set the seed");
   int max_iter = 1000;
   app.add_option("max_iter", max_iter, "Max iterations of Least Squares");
   int state_length = 100;
@@ -31,11 +33,13 @@ int main(int argc, char* argv[]) {
 
   using std::numbers::pi;
 
-  /* generate a random length of states */
-  std::random_device random_device;
-  std::mt19937 mt_engine{random_device()};
-  std::uniform_real_distribution<double> angle_range{0, 2 * pi};
+  /* can get an rng with implementation defined seed state mt_engine{std::random_device} or can use mt_engine.seed(seed)
+   * for determinism. but use a seed seq to get good entropy, and still be deterministic */
+  std::seed_seq seed_seq{seed};
+  std::mt19937 mt_engine{seed_seq};
 
+  /* generate a length of random states */
+  std::uniform_real_distribution<double> angle_range{0, 2 * pi};
   std::vector<double> gt_state_angles(state_length);
   /* first state is 0, since we fix it later */
   std::ranges::generate(std::next(gt_state_angles.begin()), gt_state_angles.end(),
