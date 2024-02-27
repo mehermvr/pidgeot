@@ -8,3 +8,5 @@ build commands:
 cmake -S . -B build
 cmake --build build -j $(nproc)
 ```
+
+im making this change so i can commit that dogleg works
