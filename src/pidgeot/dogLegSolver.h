@@ -161,8 +161,9 @@ public:
     };
     auto steepest_descent_step = [&]() {
       const auto alpha = calculate_alpha_sd();
-      /* first element will be 0, because in solving the linear system we also fix the first elem of g */
       Eigen::VectorXd sd_step = -alpha * linear_system.g;
+      /* need to set the first element to 0, because we want to fix state_0 */
+      sd_step(0) = 0.0;
       return std::make_tuple(sd_step, alpha);
     };
     /* needed when calculating dogleg step. this is the step size along gn - sd direction */
@@ -249,7 +250,7 @@ public:
         /* termination 3 satisfied */
         /* state is not updated with dx_dl */
         if (verbose) {
-          std::cout << "chi_square is less than threshold. terminating";
+          std::cout << "chi_square is less than threshold. terminating\n";
         }
         break;
       }
@@ -257,7 +258,7 @@ public:
         /* termination 1 satisfied */
         /* state is not updated with dx_dl */
         if (verbose) {
-          std::cout << "max elem in the gradient is less than threshold. terminating";
+          std::cout << "max elem in the gradient is less than threshold. terminating\n";
         }
         break;
       }
@@ -269,7 +270,7 @@ public:
         /* termination 2 satisfied */
         /* state is not updated with dx_dl */
         if (verbose) {
-          std::cout << "dx_dl dogleg_step norm is less than threshold. terminating";
+          std::cout << "dx_dl dogleg_step norm is less than threshold. terminating\n";
         }
         break;
       }
@@ -288,7 +289,7 @@ public:
       // else trust radius is unchanged
 
       if (verbose) {
-        std::cout << "Gain ratio: " << gain_ratio << " and trust radius: " << _trust_radius << "\n";
+        /* std::cout << "Gain ratio: " << gain_ratio << " and trust radius: " << _trust_radius << "\n"; */
         std::cout << "Iter: " << iter << "/" << _max_iter - 1 << " and chi_squared = " << linear_system.chi_square
                   << " and delta_x_dl (norm) = " << dx_dl_norm << ", took " << lsq_timer.tock() << "s\n";
       }
