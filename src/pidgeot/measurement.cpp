@@ -10,4 +10,9 @@ std::ostream& operator<<(std::ostream& os, const Measurement& measurement) {
   os << "\n";
   return os;
 }
+
+std::ostream& operator<<(std::ostream& os, const AtomicMeasurement& measurement) {
+  os << measurement.from_state_idx << " -> " << measurement.to_state_idx << ", Angle: " << measurement.rotation.angle();
+  return os;
+}
 } // namespace pidgeot

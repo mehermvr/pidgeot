@@ -7,6 +7,7 @@
 #include "pidgeot/gaussNewtonSolver.h"
 #include "pidgeot/measurement.h"
 #include "pidgeot/state.h"
+#include "pidgeot/steepestDescentSolver.h"
 #include <CLI/CLI.hpp>
 #include <iostream>
 #include <numbers>
