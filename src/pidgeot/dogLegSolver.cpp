@@ -28,7 +28,7 @@ State DogLegSolver::solve(bool verbose) {
       }
       break;
     }
-    if (linear_system.g.maxCoeff() <= _eps_1) {
+    if (linear_system.g.lpNorm<Eigen::Infinity>() <= _eps_1) {
       /* termination 1 satisfied */
       /* state is not updated with dx_dl */
       if (verbose) {
