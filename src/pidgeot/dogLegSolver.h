@@ -45,10 +45,11 @@ public:
   DogLegSolver(int max_iter,
                const State& initial_state,
                const Measurement& measurement,
-               double trust_radius = 1,
-               double eps_1 = 1e-10,
-               double eps_2 = 1e-5,
-               double eps_3 = 1e-10)
+               double trust_radius = 1e4,
+               double eps_1 = 1e-4,  // gradient infinity norm threshold
+               double eps_2 = 1e-12, // dx norm absolute threshold
+               double eps_3 = 1e-8   // chi_square threshold
+               )
       : _x(initial_state),
         _measurement(measurement),
         _max_iter(max_iter),

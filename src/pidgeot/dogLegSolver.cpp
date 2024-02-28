@@ -6,7 +6,7 @@
 namespace pidgeot {
 
 State DogLegSolver::solve(bool verbose) {
-  pb_utils::Timer lsq_timer("LSQ Optimization");
+  pb_utils::Timer lsq_timer("Dog Leg Optimization");
 
   const long system_size = pb_utils::saturate_cast<long>(_x.size());
   const long measurement_size = pb_utils::saturate_cast<long>(_measurement.size());
@@ -28,7 +28,9 @@ State DogLegSolver::solve(bool verbose) {
       }
       break;
     }
-    if (linear_system.g.lpNorm<Eigen::Infinity>() <= _eps_1) {
+    // to use in logging later
+    const double g_infinite_norm = linear_system.g.lpNorm<Eigen::Infinity>();
+    if (g_infinite_norm <= _eps_1) {
       /* termination 1 satisfied */
       /* state is not updated with dx_dl */
       if (verbose) {
@@ -64,8 +66,9 @@ State DogLegSolver::solve(bool verbose) {
 
     if (verbose) {
       /* std::cout << "Gain ratio: " << gain_ratio << " and trust radius: " << _trust_radius << "\n"; */
-      std::cout << "Iter: " << iter << "/" << _max_iter - 1 << " and chi_squared = " << linear_system.chi_square
-                << " and delta_x_dl (norm) = " << dx_dl_norm << ", took " << lsq_timer.tock() << "s\n";
+      std::cout << "Iter: " << iter << "/" << _max_iter - 1 << " - T1: || g ||_inf = " << g_infinite_norm
+                << ", T2: || dx ||_abs_change = " << dx_dl_norm << ", T3: chi_square = " << linear_system.chi_square
+                << ", took " << lsq_timer.tock() << "s\n";
     }
     iter++;
   }

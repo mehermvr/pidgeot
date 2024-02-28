@@ -53,7 +53,6 @@ Eigen::VectorXd LinearSystem::solve() {
   if (!sp_pattern_analyzed) {
     /* split the compute step since our sparsity structure remains the same accross iterations */
     sp_solver.analyzePattern(H_block);
-    std::cout << "analyzing \n";
     sp_pattern_analyzed = true;
   }
   sp_solver.factorize(H_block);
