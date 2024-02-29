@@ -46,18 +46,21 @@ State DogLegSolver::solve(bool verbose) {
       diag_val = std::min(max_diag_val, std::max(min_diag_val, diag_val));
     }
   };
-  auto scale_dx = [&](auto H, const Eigen::VectorXd& dx) {
-    auto D = H.diagonal();
-    clip_D(D);
-    Eigen::VectorXd dx_scaled = D.asDiagonal() * dx;
+  auto calc_D = [&](const LinearSystem& linear_system) {
+    Eigen::VectorXd diag = linear_system.H.diagonal();
+    /* diag = diag.cwiseSqrt(); */
+    clip_D(diag);
+    auto D = diag.asDiagonal();
+    return D;
+  };
+  auto scale_dx = [&](const Eigen::VectorXd& dx, const auto& D) {
+    Eigen::VectorXd dx_scaled = D * dx;
     return dx_scaled;
   };
-  auto scale_system = [&](const LinearSystem& linear_system) {
+  auto scale_system = [&](const LinearSystem& linear_system, auto& D) {
     LinearSystem scaled_system = linear_system;
-    auto D = scaled_system.H.diagonal();
-    clip_D(D);
-    scaled_system.H = D.asDiagonal().inverse() * linear_system.H * D.asDiagonal();
-    scaled_system.g = D.asDiagonal().inverse() * linear_system.g;
+    scaled_system.H = D.inverse() * linear_system.H * D.inverse();
+    scaled_system.g = D.inverse() * linear_system.g;
     return scaled_system;
   };
 
@@ -76,13 +79,14 @@ State DogLegSolver::solve(bool verbose) {
     // to use in logging later
     const double g_infinite_norm = linear_system.g.lpNorm<Eigen::Infinity>();
 
-    /* LinearSystem scaled_system = scale_system(linear_system); */
+    const auto D = calc_D(linear_system);
+    LinearSystem scaled_system = scale_system(linear_system, D);
     /* auto D_scaled_dx = scale_dx(linear_system.H, dx_gn); */
     /* std::cout << "diff norm is " << (D_scaled_dx - solved_scaled_dx).squaredNorm() << "\n"; */
 
-    const Eigen::VectorXd dx_gn = GaussNewtonSolver::solve(linear_system, sparse_solver, sparse_pattern_analyzed);
+    const Eigen::VectorXd dx_gn = GaussNewtonSolver::solve(scaled_system, sparse_solver, sparse_pattern_analyzed);
     double alpha{}; // modified in solve() call
-    const Eigen::VectorXd dx_sd = SteepestDescentSolver::solve(linear_system, alpha);
+    const Eigen::VectorXd dx_sd = SteepestDescentSolver::solve(scaled_system, alpha);
     const auto& [dx_dl, dl_case, beta] = dogleg_step(dx_sd, dx_gn);
     const auto dx_dl_norm = dx_dl.norm();
     if (termination_criteria_1(g_infinite_norm) || termination_criteria_2(dx_dl_norm) ||
