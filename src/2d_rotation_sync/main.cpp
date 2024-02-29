@@ -41,7 +41,7 @@ int main(int argc, char* argv[]) {
   pidgeot::State initial_state(state_length);
   std::cout << "Initial state length is " << initial_state.size() << "\n";
 
-  pidgeot::SteepestDescentSolver solver(max_iter, initial_state, measurement);
+  pidgeot::DogLegSolver solver(max_iter, initial_state, measurement);
   auto final_state = solver.solve(verbose);
 
   double error = 0;
