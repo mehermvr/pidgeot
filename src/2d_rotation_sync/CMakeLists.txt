@@ -1,3 +1,3 @@
-add_executable(2d_rotation_sync main.cpp)
+add_executable(2d_rotation_sync main.cpp sample_measurements.cpp sample_states.cpp)
 target_link_libraries(2d_rotation_sync PRIVATE pidgeot)
 set_target_output_directories(2d_rotation_sync)

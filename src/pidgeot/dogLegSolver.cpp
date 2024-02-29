@@ -66,8 +66,8 @@ State DogLegSolver::solve(bool verbose) {
 
     if (verbose) {
       /* std::cout << "Gain ratio: " << gain_ratio << " and trust radius: " << _trust_radius << "\n"; */
-      std::cout << "Iter: " << iter << "/" << _max_iter - 1 << " - T1: || g ||_inf = " << g_infinite_norm
-                << ", T2: || dx ||_abs_change = " << dx_dl_norm << ", T3: chi_square = " << linear_system.chi_square
+      std::cout << "Iter: " << iter << "/" << _max_iter - 1 << " - T1: ||g||_inf = " << g_infinite_norm
+                << ", T2: ||dx||_abs_change = " << dx_dl_norm << ", T3: chi_square = " << linear_system.chi_square
                 << ", took " << lsq_timer.tock() << "s\n";
     }
     iter++;
