@@ -10,6 +10,57 @@ namespace pidgeot {
 State DogLegSolver::solve(bool verbose) {
   pb_utils::Timer lsq_timer("Dog Leg Optimization");
 
+  auto termination_criteria_1 = [&](const double g_infinite_norm) {
+    if (g_infinite_norm <= _eps_1) {
+      if (verbose) {
+        std::cout << "max elem in the gradient is less than threshold. terminating\n";
+      }
+      return true;
+    }
+    return false;
+  };
+  auto termination_criteria_2 = [&](const double dx_dl_norm) {
+    if (dx_dl_norm <= _eps_2) {
+      if (verbose) {
+        std::cout << "dx_dl dogleg_step norm is less than threshold. terminating\n";
+      }
+      return true;
+    }
+    return false;
+  };
+  auto termination_criteria_3 = [&](const double chi_square) {
+    if (chi_square <= _eps_3) {
+      if (verbose) {
+        std::cout << "chi_square is less than threshold. terminating\n";
+      }
+      return true;
+    }
+    return false;
+  };
+  auto clip_D = [](auto& D) {
+    // these are values from ceres defaults
+    // https://github.com/ceres-solver/ceres-solver/blob/62c03d6ff3b1735d4b0a88006486cfde39f10063/docs/source/nnls_solving.rst#L1517
+    double min_diag_val = 1e-6;
+    double max_diag_val = 1e32;
+    for (auto& diag_val : D) {
+      diag_val = std::min(max_diag_val, std::max(min_diag_val, diag_val));
+    }
+  };
+  auto scale_dx = [&](auto H, const Eigen::VectorXd& dx) {
+    auto D = H.diagonal();
+    clip_D(D);
+    Eigen::VectorXd dx_scaled = D.asDiagonal() * dx;
+    return dx_scaled;
+  };
+  auto scale_system = [&](const LinearSystem& linear_system) {
+    LinearSystem scaled_system = linear_system;
+    auto D = scaled_system.H.diagonal();
+    clip_D(D);
+    scaled_system.H = D.asDiagonal().inverse() * linear_system.H * D.asDiagonal();
+    scaled_system.g = D.asDiagonal().inverse() * linear_system.g;
+    return scaled_system;
+  };
+
   const long system_size = pb_utils::saturate_cast<long>(_x.size());
   const long measurement_size = pb_utils::saturate_cast<long>(_measurement.size());
 
@@ -22,71 +73,28 @@ State DogLegSolver::solve(bool verbose) {
       lsq_timer.tick();
     }
     linear_system.build(_x, _measurement);
-    auto clip_D = [](auto& D) {
-      // these are values from ceres defaults
-      // https://github.com/ceres-solver/ceres-solver/blob/62c03d6ff3b1735d4b0a88006486cfde39f10063/docs/source/nnls_solving.rst#L1517
-      double min_diag_val = 1e-6;
-      double max_diag_val = 1e32;
-      for (auto& diag_val : D) {
-        diag_val = std::min(max_diag_val, std::max(min_diag_val, diag_val));
-      }
-    };
-    auto scale_dx = [&](auto H, const Eigen::VectorXd& dx) {
-      auto D = H.diagonal();
-      clip_D(D);
-      Eigen::VectorXd dx_scaled = D.asDiagonal() * dx;
-      return dx_scaled;
-    };
-    auto scale_system = [&](const LinearSystem& linear_system) {
-      LinearSystem scaled_system = linear_system;
-      auto D = scaled_system.H.diagonal();
-      clip_D(D);
-      scaled_system.H = D.asDiagonal().inverse() * linear_system.H * D.asDiagonal();
-      scaled_system.g = D.asDiagonal().inverse() * linear_system.g;
-      return scaled_system;
-    };
-    /* auto D_scaled_dx = scale_dx(linear_system.H, dx_gn); */
-    LinearSystem scaled_system = scale_system(linear_system);
-    const Eigen::VectorXd dx_gn = GaussNewtonSolver::solve(linear_system, sparse_solver, sparse_pattern_analyzed);
-    /* auto solved_scaled_dx = GaussNewtonSolver::solve(scaled_system, sparse_solver, sparse_pattern_analyzed); */
-    /* std::cout << "diff norm is " << (D_scaled_dx - solved_scaled_dx).squaredNorm() << "\n"; */
-
-    if (linear_system.chi_square <= _eps_3) {
-      /* termination 3 satisfied */
-      /* state is not updated with dx_dl */
-      if (verbose) {
-        std::cout << "chi_square is less than threshold. terminating\n";
-      }
-      break;
-    }
     // to use in logging later
     const double g_infinite_norm = linear_system.g.lpNorm<Eigen::Infinity>();
-    if (g_infinite_norm <= _eps_1) {
-      /* termination 1 satisfied */
-      /* state is not updated with dx_dl */
-      if (verbose) {
-        std::cout << "max elem in the gradient is less than threshold. terminating\n";
-      }
-      break;
-    }
+
+    /* LinearSystem scaled_system = scale_system(linear_system); */
+    /* auto D_scaled_dx = scale_dx(linear_system.H, dx_gn); */
+    /* std::cout << "diff norm is " << (D_scaled_dx - solved_scaled_dx).squaredNorm() << "\n"; */
+
+    const Eigen::VectorXd dx_gn = GaussNewtonSolver::solve(linear_system, sparse_solver, sparse_pattern_analyzed);
     double alpha{}; // modified in solve() call
     const Eigen::VectorXd dx_sd = SteepestDescentSolver::solve(linear_system, alpha);
     const auto& [dx_dl, dl_case, beta] = dogleg_step(dx_sd, dx_gn);
     const auto dx_dl_norm = dx_dl.norm();
-    if (dx_dl_norm <= _eps_2) {
-      /* termination 2 satisfied */
-      /* state is not updated with dx_dl */
-      if (verbose) {
-        std::cout << "dx_dl dogleg_step norm is less than threshold. terminating\n";
-      }
+    if (termination_criteria_1(g_infinite_norm) || termination_criteria_2(dx_dl_norm) ||
+        termination_criteria_3(linear_system.chi_square)) {
       break;
     }
     State x_new = _x;
     x_new.box_plus(dx_dl);
     const double gain_ratio = calculate_gain_ratio(x_new, linear_system, dl_case, alpha, beta);
+
     if (gain_ratio > 0) {
       _x = x_new;
-      /* leave the termination criteria to the next iteration when the system is solved */
     }
     if (gain_ratio > 0.75) {
       _trust_radius = std::max(_trust_radius, 3 * dx_dl_norm);
