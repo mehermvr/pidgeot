@@ -1,7 +1,4 @@
 #include "gaussNewtonSolver.h"
-#include "pidgeot/linearSystem.h"
-#include <Eigen/src/Core/Matrix.h>
-#include <numeric>
 
 namespace {
 struct LinearSystemEntry {
@@ -40,7 +37,7 @@ State GaussNewtonSolver::solve(bool verbose) {
   while (iter < _max_iter) {
     lsq_timer.tick();
     linear_system.build(_state, _measurement);
-    dx = linear_system.solve();
+    dx = solve(linear_system, _sp_solver, _sp_pattern_analyzed);
     _state.box_plus(dx);
     auto dx_sqnorm = dx.squaredNorm();
 
@@ -56,6 +53,27 @@ State GaussNewtonSolver::solve(bool verbose) {
     iter++;
   }
   return _state;
+}
+/* calculate the gauss newton step. if the sparse pattern was not analyzed, sparse_pattern_analyzed is set to true */
+Eigen::VectorXd GaussNewtonSolver::solve(const LinearSystem& linear_system,
+                                         SparseSolver& sparse_solver,
+                                         bool& sparse_pattern_analyzed) {
+  const auto& H = linear_system.H;
+  const auto& g = linear_system.g;
+  /* the system is (H:= J.T*J) * dx = -g */
+  const auto system_size = H.outerSize();
+  /* TODO: this is because we fix the first state. there has to be a better way */
+  const auto& H_block = H.bottomRightCorner(system_size - 1, system_size - 1);
+  const auto& g_block = g.tail(system_size - 1);
+  if (!sparse_pattern_analyzed) {
+    /* split the compute step since our sparsity structure remains the same accross iterations */
+    sparse_solver.analyzePattern(H_block);
+    sparse_pattern_analyzed = true;
+  }
+  sparse_solver.factorize(H_block);
+  Eigen::VectorXd dx = Eigen::VectorXd::Zero(system_size);
+  dx.tail(system_size - 1) = sparse_solver.solve(-1 * g_block);
+  return dx;
 }
 
 } // namespace pidgeot

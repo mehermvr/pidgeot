@@ -43,22 +43,4 @@ void LinearSystem::clear() {
 }
 void LinearSystem::convert_triplets() { H.setFromTriplets(hessian_triplets.begin(), hessian_triplets.end()); }
 
-/* calculate the gauss newton step */
-Eigen::VectorXd LinearSystem::solve() {
-  /* the system is (H:= J.T*J) * dx = -g */
-  const auto system_size = H.outerSize();
-  /* TODO: this is because we fix the first state. there has to be a better way */
-  const auto& H_block = H.bottomRightCorner(system_size - 1, system_size - 1);
-  const auto& g_block = g.tail(system_size - 1);
-  if (!sp_pattern_analyzed) {
-    /* split the compute step since our sparsity structure remains the same accross iterations */
-    sp_solver.analyzePattern(H_block);
-    sp_pattern_analyzed = true;
-  }
-  sp_solver.factorize(H_block);
-  Eigen::VectorXd dx = Eigen::VectorXd::Zero(system_size);
-  dx.tail(system_size - 1) = sp_solver.solve(-1 * g_block);
-  return dx;
-}
-
 } // namespace pidgeot

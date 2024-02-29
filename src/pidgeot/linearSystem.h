@@ -16,9 +16,6 @@ public:
 
 private:
   std::vector<Eigen::Triplet<double>> hessian_triplets;
-  bool sp_pattern_analyzed{false};
-  Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> sp_solver;
-  /* Eigen::ConjugateGradient<Eigen::SparseMatrix<double>> sp_solver; */
 
 public:
   LinearSystem(const long system_size, const long measurement_size)

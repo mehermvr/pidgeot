@@ -1,4 +1,6 @@
 #include "dogLegSolver.h"
+#include "gaussNewtonSolver.h"
+#include "linearSystem.h"
 #include "steepestDescentSolver.h"
 #include <cmath>
 #include <stdexcept>
@@ -12,14 +14,43 @@ State DogLegSolver::solve(bool verbose) {
   const long measurement_size = pb_utils::saturate_cast<long>(_measurement.size());
 
   LinearSystem linear_system(system_size, measurement_size);
-
+  GaussNewtonSolver::SparseSolver sparse_solver;
+  bool sparse_pattern_analyzed = false;
   int iter = 0;
   while (iter < _max_iter) {
     if (verbose) {
       lsq_timer.tick();
     }
     linear_system.build(_x, _measurement);
-    const Eigen::VectorXd dx_gn = linear_system.solve();
+    auto clip_D = [](auto& D) {
+      // these are values from ceres defaults
+      // https://github.com/ceres-solver/ceres-solver/blob/62c03d6ff3b1735d4b0a88006486cfde39f10063/docs/source/nnls_solving.rst#L1517
+      double min_diag_val = 1e-6;
+      double max_diag_val = 1e32;
+      for (auto& diag_val : D) {
+        diag_val = std::min(max_diag_val, std::max(min_diag_val, diag_val));
+      }
+    };
+    auto scale_dx = [&](auto H, const Eigen::VectorXd& dx) {
+      auto D = H.diagonal();
+      clip_D(D);
+      Eigen::VectorXd dx_scaled = D.asDiagonal() * dx;
+      return dx_scaled;
+    };
+    auto scale_system = [&](const LinearSystem& linear_system) {
+      LinearSystem scaled_system = linear_system;
+      auto D = scaled_system.H.diagonal();
+      clip_D(D);
+      scaled_system.H = D.asDiagonal().inverse() * linear_system.H * D.asDiagonal();
+      scaled_system.g = D.asDiagonal().inverse() * linear_system.g;
+      return scaled_system;
+    };
+    /* auto D_scaled_dx = scale_dx(linear_system.H, dx_gn); */
+    LinearSystem scaled_system = scale_system(linear_system);
+    const Eigen::VectorXd dx_gn = GaussNewtonSolver::solve(linear_system, sparse_solver, sparse_pattern_analyzed);
+    /* auto solved_scaled_dx = GaussNewtonSolver::solve(scaled_system, sparse_solver, sparse_pattern_analyzed); */
+    /* std::cout << "diff norm is " << (D_scaled_dx - solved_scaled_dx).squaredNorm() << "\n"; */
+
     if (linear_system.chi_square <= _eps_3) {
       /* termination 3 satisfied */
       /* state is not updated with dx_dl */
@@ -66,9 +97,9 @@ State DogLegSolver::solve(bool verbose) {
 
     if (verbose) {
       /* std::cout << "Gain ratio: " << gain_ratio << " and trust radius: " << _trust_radius << "\n"; */
-      std::cout << "Iter: " << iter << "/" << _max_iter - 1 << " - T1: ||g||_inf = " << g_infinite_norm
-                << ", T2: ||dx||_abs_change = " << dx_dl_norm << ", T3: chi_square = " << linear_system.chi_square
-                << ", took " << lsq_timer.tock() << "s\n";
+      std::cout << "Iter: " << iter << "/" << _max_iter - 1 << "(DL: " << dl_case
+                << ") - T1: ||g||_inf = " << g_infinite_norm << ", T2: ||dx||_abs_change = " << dx_dl_norm
+                << ", T3: chi_square = " << linear_system.chi_square << ", took " << lsq_timer.tock() << "s\n";
     }
     iter++;
   }
