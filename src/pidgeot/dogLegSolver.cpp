@@ -2,9 +2,11 @@
 #include "gaussNewtonSolver.h"
 #include "linearSystem.h"
 #include "steepestDescentSolver.h"
+#include <Eigen/src/Core/Matrix.h>
 #include <cmath>
 #include <stdexcept>
 
+using DiagonalMatrixXd = Eigen::DiagonalMatrix<double, Eigen::Dynamic>;
 namespace pidgeot {
 
 State DogLegSolver::solve(bool verbose) {
@@ -37,7 +39,7 @@ State DogLegSolver::solve(bool verbose) {
     }
     return false;
   };
-  auto clip_D = [](auto& D) {
+  auto clip_D = [](Eigen::VectorXd& D) {
     // these are values from ceres defaults
     // https://github.com/ceres-solver/ceres-solver/blob/62c03d6ff3b1735d4b0a88006486cfde39f10063/docs/source/nnls_solving.rst#L1517
     double min_diag_val = 1e-6;
@@ -48,16 +50,17 @@ State DogLegSolver::solve(bool verbose) {
   };
   auto calc_D = [&](const LinearSystem& linear_system) {
     Eigen::VectorXd diag = linear_system.H.diagonal();
+    /* TODO: test the effect */
     /* diag = diag.cwiseSqrt(); */
     clip_D(diag);
-    auto D = diag.asDiagonal();
+    DiagonalMatrixXd D = diag.asDiagonal();
     return D;
   };
   auto scale_dx = [&](const Eigen::VectorXd& dx, const auto& D) {
     Eigen::VectorXd dx_scaled = D * dx;
     return dx_scaled;
   };
-  auto scale_system = [&](const LinearSystem& linear_system, auto& D) {
+  auto scale_system = [&](const LinearSystem& linear_system, DiagonalMatrixXd& D) {
     LinearSystem scaled_system = linear_system;
     scaled_system.H = D.inverse() * linear_system.H * D.inverse();
     scaled_system.g = D.inverse() * linear_system.g;
@@ -79,15 +82,17 @@ State DogLegSolver::solve(bool verbose) {
     // to use in logging later
     const double g_infinite_norm = linear_system.g.lpNorm<Eigen::Infinity>();
 
-    const auto D = calc_D(linear_system);
+    DiagonalMatrixXd D = calc_D(linear_system);
+    /* std::cout << D.toDenseMatrix(); */
     LinearSystem scaled_system = scale_system(linear_system, D);
     /* auto D_scaled_dx = scale_dx(linear_system.H, dx_gn); */
     /* std::cout << "diff norm is " << (D_scaled_dx - solved_scaled_dx).squaredNorm() << "\n"; */
 
-    const Eigen::VectorXd dx_gn = GaussNewtonSolver::solve(scaled_system, sparse_solver, sparse_pattern_analyzed);
+    const Eigen::VectorXd dx_gn = GaussNewtonSolver::solve(linear_system, sparse_solver, sparse_pattern_analyzed);
     double alpha{}; // modified in solve() call
-    const Eigen::VectorXd dx_sd = SteepestDescentSolver::solve(scaled_system, alpha);
+    const Eigen::VectorXd dx_sd = SteepestDescentSolver::solve(linear_system, alpha);
     const auto& [dx_dl, dl_case, beta] = dogleg_step(dx_sd, dx_gn);
+    /* Eigen::VectorXd dx_dl = (sdx_dl.array() / D.diagonal().array()).matrix(); */
     const auto dx_dl_norm = dx_dl.norm();
     if (termination_criteria_1(g_infinite_norm) || termination_criteria_2(dx_dl_norm) ||
         termination_criteria_3(linear_system.chi_square)) {
