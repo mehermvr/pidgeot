@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(pidgeot)
+project(pidgeot LANGUAGES CXX)
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/BuildSystemChecks.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/setTargetOutputDirectories.cmake)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/StandardProjectOptions.cmake)
 
