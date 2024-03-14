@@ -1,9 +1,9 @@
-export CC := /usr/bin/clang-18
-export CXX := /usr/bin/clang++-18
+export CC := /usr/local/bin/gcc
+export CXX := /usr/local/bin/g++
 
 .PHONY: build
 build:
-	cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Debug
+	cmake -G Ninja -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_VERBOSE_MAKEFILE=On
 	cmake --build build -j $(shell nproc)
 
 .PHONY: release_build
