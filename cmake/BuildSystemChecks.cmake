@@ -22,10 +22,10 @@ string(
           "\\1"
           GCC_VERSION_STRING
           ${gcc_full_version_string})
-if(GCC_VERSION_STRING VERSION_GREATER_EQUAL 14)
+if(GCC_VERSION_STRING VERSION_GREATER_EQUAL 13)
   # Print CMake version and project name
   message(STATUS "Building ${PROJECT_NAME} with CMake version: ${CMAKE_VERSION} On GCC-${GCC_VERSION_STRING}")
 
 else()
-  message(FATAL_ERROR "Please use gcc version 14.0 and above")
+  message(FATAL_ERROR "Please use gcc version 13.0 and above")
 endif()

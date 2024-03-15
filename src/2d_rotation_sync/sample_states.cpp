@@ -14,7 +14,8 @@ std::vector<double> sample_states(const int seed, const long state_length) {
   /* generate a length of random states */
   std::uniform_real_distribution<double> angle_range{0, 2 * pi};
   std::vector<double> gt_state_angles(state_length);
-  /* first state is 0, since we fix it later */
+  /* first state is 0, since we fix it later and to allow easy eval with initial state
+   * of 0 */
   std::ranges::generate(std::next(gt_state_angles.begin()), gt_state_angles.end(),
                         [&]() { return angle_range(mt_engine); });
   return gt_state_angles;

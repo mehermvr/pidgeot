@@ -22,13 +22,34 @@ void LinearSystem::build(const State& x, const Measurement& measurement) {
         (rotation_derived(from.rotation.angle()).transpose() * to.rotation.toRotationMatrix()).reshaped();
     Eigen::Vector4d Jj =
         (from.rotation.inverse().toRotationMatrix() * rotation_derived(to.rotation.angle())).reshaped();
-    hessian_triplets.emplace_back(from_idx, from_idx, Ji.transpose() * Ji);
-    hessian_triplets.emplace_back(to_idx, to_idx, Jj.transpose() * Jj);
+
+    // if a state is fixed, then we add large elements to the diagonal position on
+    // the Hessian.
+    if (!from.fixed) {
+      hessian_triplets.emplace_back(from_idx, from_idx, Ji.transpose() * Ji);
+    } else {
+      /* i dont want to reiterate over measurements, so we emplace here */
+      hessian_triplets.emplace_back(from_idx, from_idx, 1e42); // double limit is > 1e308
+    }
+    if (!to.fixed) {
+      hessian_triplets.emplace_back(to_idx, to_idx, Jj.transpose() * Jj);
+    } else {
+      hessian_triplets.emplace_back(to_idx, to_idx, 1e42);
+    }
+
     hessian_triplets.emplace_back(from_idx, to_idx, Ji.transpose() * Jj);
     hessian_triplets.emplace_back(to_idx, from_idx, Ji.transpose() * Jj);
     /* g is the gradient, not the rhs in the normal equations */
-    g(from_idx) += Ji.transpose() * e;
-    g(to_idx) += Jj.transpose() * e;
+    // this is more of a trick to get gradient descent calculations right when we have fixed
+    // states. the cauchy step involves g.T H g, and by setting g elements to 0, even if
+    // we add to the diagonal in the Hessian (for gauss newton regularization), it gets zeroed out in
+    // the norm calculations for cauchy
+    if (!from.fixed) {
+      g(from_idx) += Ji.transpose() * e;
+    }
+    if (!to.fixed) {
+      g(to_idx) += Jj.transpose() * e;
+    }
     chi_square += e.squaredNorm();
   };
   std::ranges::for_each(measurement, update_linear_system);

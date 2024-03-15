@@ -26,16 +26,10 @@ namespace pidgeot {
  * handle it
  */
 class DogLegSolver {
-private:
-  int _max_iter;
-  State _x;
-  Measurement _measurement;
-  double _eps_1; // gradient infinity norm threshold
-  double _eps_2; // dx norm absolute threshold
-  double _eps_3; // chi_square threshold
-  double _trust_radius;
-
 public:
+  using SparseSolver = Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>>;
+  /*using SparseSolver = Eigen::ConjugateGradient<Eigen::SparseMatrix<double>>; */
+
   /*
    * param eps_1: if max element in gradient at an iteration is less than eps_1, terminate
    * param eps_2: if obsolute change in x across an interation (dx) is less than eps_2, terminate. this is different
@@ -62,16 +56,36 @@ public:
   State solve(bool verbose);
 
 private:
+  void _calculate_trust_diagonal(const LinearSystem& linear_system);
+
+  Eigen::VectorXd _trust_scale_vector(const Eigen::VectorXd& vec) const;
+  Eigen::VectorXd _trust_unscale_vector(const Eigen::VectorXd& scaled_vec) const;
+
+  Eigen::VectorXd _calculate_gauss_newton_step(const LinearSystem& linear_system);
+
+  std::pair<double, Eigen::VectorXd> _calculate_cauchy_step(const LinearSystem& linear_system);
+
   /* returns dl_step, the dl switch case, and the beta value. beta is only meaningful in case 3 */
   /* we keep track of which dl case was the iteration, so we can calculate the linear model diff L(0) - L(dl_dx)
    * without keeping track of the Jacobian */
-  std::tuple<Eigen::VectorXd, int, double> dogleg_step(const auto& sd_step, const auto& gn_step);
+  std::tuple<Eigen::VectorXd, int, double> _calculate_dogleg_step(const auto& sd_step, const auto& gn_step);
 
   /* gain ratio between the non linear model and the linear model approximation */
-  double calculate_gain_ratio(const State& x_new,
-                              const LinearSystem& linear_system,
-                              const int dl_case,
-                              const double alpha,
-                              const double beta) const;
+  double _calculate_gain_ratio(const State& x_new,
+                               const LinearSystem& linear_system,
+                               const int dl_case,
+                               const double alpha,
+                               const double beta) const;
+
+  int _max_iter;
+  State _x;
+  Measurement _measurement;
+  double _eps_1; // gradient infinity norm threshold
+  double _eps_2; // dx norm absolute threshold
+  double _eps_3; // chi_square threshold
+  double _trust_radius;
+  Eigen::VectorXd _trust_diagonal;
+  SparseSolver _sparse_solver;
+  bool _sparse_pattern_analyzed{false};
 };
 }; // namespace pidgeot

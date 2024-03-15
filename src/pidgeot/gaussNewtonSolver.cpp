@@ -1,26 +1,5 @@
 #include "gaussNewtonSolver.h"
 
-namespace {
-struct LinearSystemEntry {
-  /* Eigen::MatrixXd H; */
-  Eigen::VectorXd g;
-  double chi_square{0.0};
-
-  explicit LinearSystemEntry(const long size) : g(Eigen::VectorXd::Zero(size)) {}
-
-  LinearSystemEntry& operator+=(const LinearSystemEntry& other) {
-    this->g += other.g;
-    this->chi_square += other.chi_square;
-    return *this;
-  }
-
-  friend LinearSystemEntry operator+(LinearSystemEntry lhs, const LinearSystemEntry& rhs) {
-    lhs += rhs;
-    return lhs;
-  }
-};
-} // namespace
-
 namespace pidgeot {
 
 State GaussNewtonSolver::solve(bool verbose) {
@@ -62,17 +41,14 @@ Eigen::VectorXd GaussNewtonSolver::solve(const LinearSystem& linear_system,
   const auto& g = linear_system.g;
   /* the system is (H:= J.T*J) * dx = -g */
   const auto system_size = H.outerSize();
-  /* TODO: this is because we fix the first state. there has to be a better way */
-  const auto& H_block = H.bottomRightCorner(system_size - 1, system_size - 1);
-  const auto& g_block = g.tail(system_size - 1);
   if (!sparse_pattern_analyzed) {
     /* split the compute step since our sparsity structure remains the same accross iterations */
-    sparse_solver.analyzePattern(H_block);
+    sparse_solver.analyzePattern(H);
     sparse_pattern_analyzed = true;
   }
-  sparse_solver.factorize(H_block);
+  sparse_solver.factorize(H);
   Eigen::VectorXd dx = Eigen::VectorXd::Zero(system_size);
-  dx.tail(system_size - 1) = sparse_solver.solve(-1 * g_block);
+  dx = sparse_solver.solve(-1 * g);
   return dx;
 }
 

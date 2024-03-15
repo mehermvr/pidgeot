@@ -40,6 +40,8 @@ int main(int argc, char* argv[]) {
 
   pidgeot::State initial_state(state_length);
   std::cout << "Initial state length is " << initial_state.size() << "\n";
+  std::cout << "Fixing state 0\n";
+  initial_state.fix_state(0);
 
   pidgeot::DogLegSolver solver(max_iter, initial_state, measurement);
   auto final_state = solver.solve(verbose);

@@ -16,6 +16,7 @@ struct AtomicState {
   // construction of State from a vector of Atoms
   int index;
   Eigen::Rotation2Dd rotation;
+  bool fixed = false;
 
   AtomicState(const int idx, const double angle) : index(idx), rotation(Eigen::Rotation2Dd(angle)) {}
   AtomicState(const int idx, const Eigen::Rotation2Dd rot) : index(idx), rotation(rot) {}
@@ -84,6 +85,10 @@ public:
       _elements.at(idx) = pert_rotation * _elements.at(idx); // left multiplication
     });
   }
+
+  // fix states to indicate to optimization routines not to move them. doesn't enforce
+  // it
+  void fix_state(int idx) { _elements.at(idx).fixed = true; }
 
   // Overload << operator for printing, expensive since a copy is made for sorting
   friend std::ostream& operator<<(std::ostream& os, const State& state) {

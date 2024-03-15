@@ -13,16 +13,12 @@ double SteepestDescentSolver::calculate_step_size(const LinearSystem& linear_sys
 Eigen::VectorXd SteepestDescentSolver::solve(const LinearSystem& linear_system) {
   const double alpha = calculate_step_size(linear_system);
   Eigen::VectorXd sd_step = -alpha * linear_system.g;
-  /* need to set the first element to 0, because we want to fix state_0 */
-  sd_step(0) = 0.0;
   return sd_step;
 };
 // store the step size in alpha. useful when alpha is needed and to prevent double compute
 Eigen::VectorXd SteepestDescentSolver::solve(const LinearSystem& linear_system, double& alpha) {
   alpha = calculate_step_size(linear_system);
   Eigen::VectorXd sd_step = -alpha * linear_system.g;
-  /* need to set the first element to 0, because we want to fix state_0 */
-  sd_step(0) = 0.0;
   return sd_step;
 }
 
@@ -41,9 +37,7 @@ State SteepestDescentSolver::solve(bool verbose) {
     // use the static overload
     const Eigen::VectorXd dx = solve(linear_system);
 
-    /* std::cout << _x; */
     _x.box_plus(dx);
-    /* std::cout << _x; */
     auto dx_sqnorm = dx.squaredNorm();
     std::cout << "Iter: " << iter << "/" << _max_iter - 1 << " and chi_squared = " << linear_system.chi_square
               << " and delta_x (sq. norm) = " << dx_sqnorm << ", took " << lsq_timer.tock() << "s\n";
