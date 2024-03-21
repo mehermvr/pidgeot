@@ -50,6 +50,8 @@ void LinearSystem::build(const State& x, const Measurement& measurement) {
     if (!to.fixed) {
       g(to_idx) += Jj.transpose() * e;
     }
+    /* g(from_idx) += Ji.transpose() * e; */
+    /* g(to_idx) += Jj.transpose() * e; */
     chi_square += e.squaredNorm();
   };
   std::ranges::for_each(measurement, update_linear_system);
